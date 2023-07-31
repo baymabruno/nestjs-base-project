@@ -11,8 +11,8 @@ async function bootstrap() {
 
   const options = new DocumentBuilder()
     .addBearerAuth()
-    .setTitle('Nest Start Project')
-    .setDescription('Projeto start Node.Js - NestJs')
+    .setTitle('Nest Base Project')
+    .setDescription('Projeto base Node.Js - NestJs')
     .setVersion('1.0')
     .build();
 
