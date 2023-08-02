@@ -1,0 +1,40 @@
+version: '3.7'
+
+services:
+
+  # application container
+  node:
+    container_name: node-backend
+    build:
+        context: ./
+        dockerfile: ./docker/Dockerfile
+    image: nodedocker
+    command: "npm run start:dev"
+    volumes:
+      - ./:/var/www/html/
+      - /var/www/html/node_modules
+    ports:
+      - 8000:3000
+    depends_on: 
+      - mongo
+    networks:
+      - nest_network
+    # restart: unless-stopped
+    restart: on-failure
+
+  #mongodb container 
+  mongo:
+    image: mongo:7.0.0-rc8-jammy
+    container_name: node-database
+    restart: on-failure
+    ports:
+      - "27017:27017"
+    volumes:
+      - "./storage/db-data:/data/db"
+    networks:
+      - nest_network
+      
+#network to hold backend/nginx/mongo
+networks:
+  nest_network:
+    driver: bridge
