@@ -9,7 +9,8 @@ services:
         context: ./
         dockerfile: ./docker/Dockerfile
     image: nodedocker
-    command: "npm run start:dev"
+    # command: "npm run start:pm2"
+    command: "pm2-runtime start ecosystem.config.js"
     volumes:
       - ./:/var/www/html/
       - /var/www/html/node_modules
@@ -20,7 +21,7 @@ services:
     networks:
       - nest_network
     # restart: unless-stopped
-    restart: on-failure
+    # restart: on-failure
 
   #mongodb container 
   mongo:
