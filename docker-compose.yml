@@ -5,12 +5,12 @@ services:
   # application container
   node:
     container_name: node-backend
+    image: nodedocker
+    restart: on-failure
+    command: "pm2-runtime start ecosystem.config.js"
     build:
         context: ./
         dockerfile: ./docker/Dockerfile
-    image: nodedocker
-    # command: "npm run start:pm2"
-    command: "pm2-runtime start ecosystem.config.js"
     volumes:
       - ./:/var/www/html/
       - /var/www/html/node_modules
@@ -21,13 +21,11 @@ services:
       - mongo
     networks:
       - nest_network
-    # restart: unless-stopped
-    # restart: on-failure
 
   #mongodb container 
   mongo:
-    image: mongo:7.0.0-rc8-jammy
     container_name: node-database
+    image: mongo:7.0.0-rc8-jammy
     restart: on-failure
     ports:
       - "27017:27017"
