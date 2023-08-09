@@ -7,7 +7,7 @@ services:
     container_name: node-backend
     image: nodedocker
     restart: on-failure
-    command: "pm2-runtime start ecosystem.config.js"
+    command: "npm run start:pm2-dev"
     build:
         context: ./
         dockerfile: ./docker/Dockerfile
