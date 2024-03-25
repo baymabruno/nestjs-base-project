@@ -22,17 +22,17 @@ services:
     networks:
       - nest_network
 
-  #mongodb container 
-  mongo:
-    container_name: node-database
-    image: mongo:7.0.0-rc8-jammy
-    restart: on-failure
-    ports:
-      - "27017:27017"
-    volumes:
-      - "./storage/db-data:/data/db"
-    networks:
-      - nest_network
+  # mongodb container 
+  # mongo:
+  #   container_name: node-database
+  #   image: mongo:7.0.0-rc8-jammy
+  #   restart: on-failure
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - "./storage/db-data:/data/db"
+  #   networks:
+  #     - nest_network
       
 #network to hold backend/nginx/mongo
 networks:
