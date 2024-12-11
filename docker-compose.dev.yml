@@ -4,10 +4,10 @@ services:
     container_name: nestjs-base-project
     image: nodedocker
     restart: on-failure
-    command: "npm run start:pm2"
+    command: "npm run start:pm2-dev"
     build:
         context: ./
-        dockerfile: ./docker/Dockerfile
+        dockerfile: ./docker/DockerfileDev
     volumes:
       - ./:/var/www/html/
       - /var/www/html/node_modules

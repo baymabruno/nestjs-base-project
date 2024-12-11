@@ -1,9 +1,12 @@
 module.exports = [
   {
     name: 'node-backend',
-    script: 'dist/main.js',
+    script:
+      'nest build && ./docker/pm2-logrotate-settings.sh && node dist/main',
     error_file: '/var/www/html/logs/api.log',
     out_file: '/var/www/html/logs/api.log',
-    log_date_format: '[Y-m-d H:i:s]',
+    env: {
+      TZ: 'America/Sao_Paulo',
+    },
   },
 ];

@@ -16,8 +16,10 @@ async function bootstrap() {
     .setVersion('1.0')
     .build();
 
-  const document = SwaggerModule.createDocument(app, options);
-  SwaggerModule.setup('/doc', app, document);
+  if (process.env.SWAGGER === 'true') {
+    const document = SwaggerModule.createDocument(app, options);
+    SwaggerModule.setup('/doc', app, document);
+  }
 
   app.useStaticAssets(join(__dirname, '..', 'public'));
   app.setBaseViewsDir(join(__dirname, '..', 'views'));
@@ -36,6 +38,8 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT || 3000);
 
-  logger.log(`Server is listening on: ${await app.getUrl()}`);
+  logger.log(
+    `Server is listening on: ${await app.getUrl()} {Date: ${new Date()}}`,
+  );
 }
 bootstrap();

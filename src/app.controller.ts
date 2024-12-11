@@ -1,8 +1,7 @@
 import { Controller, Get, Logger, Render } from '@nestjs/common';
-import { AppService } from './app.service';
 import { ApiExcludeEndpoint, ApiResponse } from '@nestjs/swagger';
 import axios from 'axios';
-// import axios from 'axios';
+import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
