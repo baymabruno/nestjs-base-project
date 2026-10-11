@@ -2,19 +2,30 @@ services:
   # application container
   node:
     container_name: nestjs-base-project
-    image: nodedocker
-    restart: on-failure
-    command: "npm run start:pm2"
+    image: nestjs-base-project
+    restart: unless-stopped
+    # longer than PM2's kill_timeout, so the app can shut down gracefully
+    stop_grace_period: 15s
+    command: npm run start:pm2
     build:
-        context: ./
-        dockerfile: ./docker/Dockerfile
+      context: ./
+      dockerfile: ./docker/Dockerfile
+    env_file: .env
     volumes:
-      - ./:/var/www/html/
-      - /var/www/html/node_modules
+      - logs:/var/www/html/logs
     ports:
-      - 3000:3000
+      - ${PORT:-3000}:${PORT:-3000}
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
     networks:
       - nest_network
+
+#volumes
+volumes:
+  logs:
 
 #network
 networks:

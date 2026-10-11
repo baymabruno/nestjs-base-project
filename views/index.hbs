@@ -4,8 +4,6 @@
         <meta name="viewport" content="width=device-width" />
         <title>Bayma Bruno – Nest Base Project</title>
         <link rel="dns-prefetch" href="//s.w.org" />
-        <meta property="og:image"
-            content="https://base-project-nest.herokuapp.com/assets/images/webpage.jpg">
         <link
             href="https://fonts.googleapis.com/css?family=Montserrat:300,400,500,600,700"
             rel="stylesheet">
@@ -40,11 +38,11 @@
             {{ message }}
         </h4>
 
-        <p>Version 2.0.0</p>
+        <p>Version {{ version }}</p>
 
         <p>Github: <a href="https://github.com/baymabruno/nestjs-base-project" target="_blank">baymabruno/nestjs-base-project</a></p>
-        <p>API Explorer: <a href="/doc" target="_blank">/explorer</a></p>
-        <p>OpenAPI spec: <a href="/doc-json" target="_blank">/openapi.json</a></p>
+        <p>API Explorer: <a href="/doc" target="_blank">/doc</a></p>
+        <p>OpenAPI spec: <a href="/doc-json" target="_blank">/doc-json</a></p>
     </body>
 
 </html>

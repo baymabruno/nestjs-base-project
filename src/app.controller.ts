@@ -1,45 +1,38 @@
 import { Controller, Get, Logger, Render } from '@nestjs/common';
-import { ApiExcludeEndpoint, ApiResponse } from '@nestjs/swagger';
-import axios from 'axios';
+import {
+  ApiBadGatewayResponse,
+  ApiExcludeEndpoint,
+  ApiOkResponse,
+} from '@nestjs/swagger';
 import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
-  private readonly logger = new Logger();
+  private readonly logger = new Logger(AppController.name);
 
   constructor(private readonly appService: AppService) {}
 
   @Get()
   @ApiExcludeEndpoint()
   @Render('index')
-  render(): any {
-    const message = this.appService.getHello();
-    return { message };
+  render() {
+    return {
+      message: this.appService.getHello(),
+      version: this.appService.getVersion(),
+    };
   }
 
   @Get('/api')
-  @ApiResponse({
-    status: 200,
-  })
-  async index() {
-    this.logger.log('teste');
-    this.logger.error('teste');
-    this.logger.warn('teste');
-    this.logger.debug('teste');
-    this.logger.verbose('teste');
+  @ApiOkResponse()
+  index() {
+    this.logger.debug('api index called');
     return { success: '200' };
   }
 
   @Get('/api/axios')
-  @ApiResponse({
-    status: 200,
-  })
-  async axiosExample() {
-    try {
-      const response = await axios.get('http://localhost:3000/api');
-      console.log(response.data);
-    } catch (error) {
-      console.error(error);
-    }
+  @ApiOkResponse({ description: 'Response of the example request' })
+  @ApiBadGatewayResponse({ description: 'Example request failed' })
+  axiosExample() {
+    return this.appService.fetchExample();
   }
 }

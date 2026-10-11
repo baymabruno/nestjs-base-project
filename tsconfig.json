@@ -14,14 +14,15 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./",
-    "types": ["node", "jest"],
+    "types": [
+      "node",
+      "jest"
+    ],
     "incremental": true,
     "skipLibCheck": true,
-    "strict": false,
-    "strictNullChecks": false,
-    "noImplicitAny": false,
-    "strictBindCallApply": false,
+    "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": true,
+    "strictPropertyInitialization": false
   }
 }

@@ -1,0 +1,16 @@
+# Runs setup.sh inside a container: only Docker is needed on the host.
+# Run it from the project root, e.g.:
+#   docker-compose -f docker-compose.setup.yml run --rm setup install dev
+name: nestjs-base-project-setup
+
+services:
+  setup:
+    image: nestjs-base-project-setup
+    build:
+      context: ./docker
+      dockerfile: DockerfileSetup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # same path as the host, so the app's compose volumes resolve to host paths
+      - ${PWD}:${PWD}
+    working_dir: ${PWD}

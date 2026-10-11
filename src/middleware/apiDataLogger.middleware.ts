@@ -1,18 +1,26 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
+import { getRequestId } from './requestId.middleware';
 
 @Injectable()
 export class ApiRequestLogger implements NestMiddleware {
-  private readonly logger = new Logger();
+  private readonly logger = new Logger('HTTP');
 
   use(req: Request, res: Response, next: NextFunction) {
-    const dataLog = {
-      ip: req.ip,
-      method: req.method,
-      route: req.originalUrl,
-    };
+    const startedAt = process.hrtime.bigint();
 
-    this.logger.log(JSON.stringify(dataLog));
+    res.on('finish', () => {
+      const durationMs =
+        Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+
+      this.logger.log(`${req.method} ${req.originalUrl}`, {
+        requestId: getRequestId(req),
+        ip: req.ip,
+        statusCode: res.statusCode,
+        durationMs: Math.round(durationMs),
+      });
+    });
+
     next();
   }
 }
