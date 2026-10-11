@@ -1,13 +1,29 @@
-import globals from "globals";
-import pluginJs from "@eslint/js";
-import tseslint from "typescript-eslint";
-
+import pluginJs from '@eslint/js';
+import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
 /** @type {import('eslint').Linter.Config[]} */
-export default [
-  {files: ["**/*.{js,mjs,cjs,ts}"]},
-  {files: ["**/*.js"], languageOptions: {sourceType: "script"}},
-  {languageOptions: { globals: globals.browser }},
+export default tseslint.config(
+  { ignores: ['dist/**', 'coverage/**', 'eslint.config.mjs'] },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
-];
+  eslintPluginPrettierRecommended,
+  {
+    files: ['**/*.ts'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.jest },
+      sourceType: 'module',
+    },
+    rules: {
+      '@typescript-eslint/interface-name-prefix': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+  {
+    files: ['**/*.js'],
+    languageOptions: { globals: globals.node, sourceType: 'commonjs' },
+  },
+);

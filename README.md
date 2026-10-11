@@ -34,7 +34,7 @@
 ### Running the app
 
 ```bash
-$ docker compose up -d --build
+docker-compose up -d --build
 ```
 
 # Development 
@@ -42,21 +42,24 @@ $ docker compose up -d --build
 ### Running the app
 
 ```bash
-$ docker compose up --file docker-compose.dev -d --build
-$ docker cp node-backend:/var/www/html/node_modules/ ./
+docker-compose --file docker-compose.dev.yml up -d --build
+```
+
+```bash
+docker cp nestjs-base-project:/var/www/html/node_modules/ ./
 ```
 
 # Test 
 
 ```bash
 # unit tests
-$ npm run test
+npm run test
 
 # e2e tests
-$ npm run test:e2e
+npm run test:e2e
 
 # test coverage
-$ npm run test:cov
+npm run test:cov
 ```
 
 \* Tests in development

@@ -7,7 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { rolesConstants } from 'src/users/constants/user.constants';
+import { rolesConstants } from '../users/constants/user.constants';
 import { AuthorizationService } from './authorization.service';
 import { UserLogged } from './dto/user-logged.dto';
 import { UserLogin } from './dto/user-login.dto';

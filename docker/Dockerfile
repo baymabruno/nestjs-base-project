@@ -1,15 +1,15 @@
-FROM node:20.9.0
+FROM node:24.21.0
 
 LABEL maintainer="Vertex Digital"
 
 WORKDIR /var/www/html/
 COPY package*.json ./
-RUN npm ci --only=production --ignore-scripts
-COPY . .
+RUN npm ci --ignore-scripts
 
 RUN npm install pm2 -g
 RUN pm2 install pm2-logrotate
 
-CMD ["pm2-runtime", "main.js"]
-
+COPY . .
 RUN npm run build
+
+CMD ["npm", "run", "start:pm2"]

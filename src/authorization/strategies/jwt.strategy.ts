@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { UsersService } from 'src/users/users.service';
-import { jwtConstants } from '../constants/authorization.constants';
+import { UsersService } from '../../users/users.service';
 
 export class ValidatePayalod {
   userId: string;
@@ -12,16 +12,19 @@ export class ValidatePayalod {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(
+    configService: ConfigService,
+    private readonly usersService: UsersService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: jwtConstants.secret,
+      secretOrKey: configService.getOrThrow<string>('JWT_KEY'),
     });
   }
 
   async validate(payload: ValidatePayalod): Promise<ValidatePayalod> {
-    const user = await new UsersService().findOne(payload.username);
+    const user = await this.usersService.findOne(payload.username);
 
     return {
       userId: user.userId,
