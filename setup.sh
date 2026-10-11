@@ -90,8 +90,8 @@ rename_project() {
   success "Project renamed to \"$new\""
   echo
   echo "  Review the description, the author and the repository URL in"
-  echo "  package.json. Tokens issued with the old name are no longer valid"
-  echo "  (JWT_ISSUER and JWT_AUDIENCE changed)."
+  echo "  package.json, and the home page (views/index.hbs). Tokens issued with"
+  echo "  the old name are no longer valid (JWT_ISSUER and JWT_AUDIENCE changed)."
   echo
 }
 

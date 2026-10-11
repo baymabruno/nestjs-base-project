@@ -112,6 +112,7 @@ O `./setup.sh install dev` já faz isso.
 
 | Endereço | Descrição |
 |---|---|
+| http://localhost:3000 | Página inicial |
 | http://localhost:3000/doc | Swagger (com `SWAGGER="true"`, o padrão em desenvolvimento) |
 | http://localhost:3000/health | Health check |
 | `localhost:9229` | Debugger do Node.js (porta definida em `DEBUG_PORT`) |

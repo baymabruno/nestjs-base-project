@@ -1,9 +1,11 @@
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import request from 'supertest';
 import { createTestApp } from './support/app.js';
 
-// Behavior shared by every route: security headers, CORS, request id,
-// versioning, error format and health check
+// Behavior shared by every route: home page, security headers, CORS,
+// request id, versioning, error format and health check
 describe('HTTP (e2e)', () => {
   let app: NestExpressApplication;
 
@@ -13,6 +15,31 @@ describe('HTTP (e2e)', () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it('/ (GET) renders the home page with the version', () => {
+    const { version } = JSON.parse(
+      readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8'),
+    );
+
+    return request(app.getHttpServer())
+      .get('/')
+      .expect(200)
+      .expect('content-type', /html/)
+      .expect((res) => {
+        expect(res.text).toContain('Hello World!');
+        expect(res.text).toContain(`Version ${version}`);
+      });
+  });
+
+  it('allows the Google Fonts used by the home page', () => {
+    return request(app.getHttpServer())
+      .get('/')
+      .expect((res) => {
+        const csp = res.headers['content-security-policy'];
+        expect(csp).toContain('https://fonts.googleapis.com');
+        expect(csp).toContain('https://fonts.gstatic.com');
+      });
   });
 
   it('/health (GET)', () => {
@@ -85,7 +112,8 @@ describe('HTTP (e2e)', () => {
         .expect(404);
     });
 
-    it('keeps the health check and the JWKS outside the API prefix', async () => {
+    it('keeps the home page, the health check and the JWKS outside the API prefix', async () => {
+      await request(app.getHttpServer()).get('/').expect(200);
       await request(app.getHttpServer()).get('/health').expect(200);
       await request(app.getHttpServer())
         .get('/.well-known/jwks.json')

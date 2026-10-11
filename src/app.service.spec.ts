@@ -1,30 +1,19 @@
-import { HttpService } from '@nestjs/axios';
-import { BadGatewayException, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { of, throwError } from 'rxjs';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { AppService } from './app.service.js';
-import { Env } from './config/env.validation.js';
 
 describe('AppService', () => {
-  const get = vi.fn();
-  const service = new AppService(
-    { get } as unknown as HttpService,
-    new ConfigService({ PORT: 3000 }) as ConfigService<Env, true>,
-  );
+  const service = new AppService();
 
-  beforeEach(() => get.mockReset());
-
-  it('returns the response of the example request', async () => {
-    get.mockReturnValue(of({ data: { status: 'ok' } }));
-
-    await expect(service.fetchExample()).resolves.toEqual({ status: 'ok' });
-    expect(get).toHaveBeenCalledWith('http://localhost:3000/health');
+  it('returns the home page message', () => {
+    expect(service.getHello()).toBe('Hello World!');
   });
 
-  it('answers 502 when the example request fails', async () => {
-    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    get.mockReturnValue(throwError(() => new Error('ECONNREFUSED')));
+  it('returns the version from package.json', () => {
+    const { version } = JSON.parse(
+      readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8'),
+    );
 
-    await expect(service.fetchExample()).rejects.toThrow(BadGatewayException);
+    expect(service.getVersion()).toBe(version);
   });
 });

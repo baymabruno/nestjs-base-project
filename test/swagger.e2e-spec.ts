@@ -31,7 +31,6 @@ describe('Swagger (e2e)', () => {
 
     expect(Object.keys(paths)).toEqual(
       expect.arrayContaining([
-        '/api/v1/axios',
         '/api/v1/auth/login',
         '/api/v1/auth/refresh',
         '/api/v1/auth/profile',
@@ -39,6 +38,12 @@ describe('Swagger (e2e)', () => {
         '/health',
       ]),
     );
+  });
+
+  it('leaves the home page out of the documentation', async () => {
+    const { paths } = await openApi();
+
+    expect(paths).not.toHaveProperty('/');
   });
 
   it('documents the bearer authentication of the protected routes', async () => {
