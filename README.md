@@ -147,9 +147,9 @@ Copie o `.env.example` para `.env` e preencha os valores. As variáveis são val
 Defina estas variáveis no `.env` do servidor:
 
 - `APP_ENVIRONMENT="production"`: ativa os logs em JSON e desativa os usuários de demonstração
-- `JWT_KEY`: uma chave aleatória forte com pelo menos 32 caracteres; caso contrário, a aplicação não sobe. Para gerar uma:
+- `JWT_KEY`: uma chave aleatória forte com pelo menos 32 caracteres; caso contrário, a aplicação não sobe. O `setup.sh` gera uma automaticamente ao criar o `.env`. Para gerar manualmente:
   ```bash
-  node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+  openssl rand -base64 48
   ```
 - `CORS_ORIGINS`: as origens do front-end que podem chamar a API, por exemplo `"https://app.example.com,https://admin.example.com"`. Se ficar vazia, qualquer origem é permitida.
 - `TRUST_PROXY`: se a aplicação fica atrás de um proxy reverso ou load balancer (nginx, Traefik, ALB etc.), informe quantos proxies existem na frente dela, por exemplo `"1"`. Sem isso, todas as requisições parecem vir do IP do proxy, e o limite de requisições (inclusive o de 5 logins por minuto) passa a valer para todos os clientes juntos. Só ative quando houver de fato um proxy, porque o cabeçalho `X-Forwarded-For` pode ser forjado por quem acessa a aplicação diretamente.
@@ -292,7 +292,28 @@ Copie o `node_modules` do container para a pasta do projeto:
 docker cp nestjs-base-project:/var/www/html/node_modules/ ./
 ```
 
-A aplicação roda com o PM2 (`ecosystem.dev.config.js`), recarrega ao alterar arquivos, e um debugger pode se conectar na porta `9229`. Os logs são gravados em `logs/api.log` na pasta do projeto.
+A aplicação roda com o PM2 (`ecosystem.dev.config.js`), recarrega ao alterar arquivos, e um debugger pode se conectar na porta `9229` (ou na porta definida em `DEBUG_PORT`). Os logs são gravados em `logs/api.log` na pasta do projeto.
+
+Ao adicionar ou atualizar dependências no `package.json`, recrie o container com o `-V`, que descarta o volume antigo do `node_modules`:
+
+```bash
+docker-compose --file docker-compose.dev.yml up -d --build -V
+```
+
+O `./setup.sh install dev` já faz isso.
+
+# Endpoints
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/` | Página inicial |
+| `GET` | `/api` | Exemplo de rota pública |
+| `GET` | `/api/axios` | Exemplo de requisição HTTP externa com o `HttpModule` |
+| `POST` | `/api/auth/login` | Login; retorna o token de acesso |
+| `GET` | `/api/auth/profile` | Dados do usuário logado (requer a role `admin`) |
+| `GET` | `/health` | Health check |
+| `GET` | `/doc` | Documentação Swagger (quando `SWAGGER="true"`) |
+| `GET` | `/doc-json` | Especificação OpenAPI em JSON (quando `SWAGGER="true"`) |
 
 # Autorização
 
@@ -340,7 +361,13 @@ Erros inesperados (500) retornam apenas `Internal server error`, e os detalhes, 
 
 Cada requisição recebe um ID, devolvido no cabeçalho `X-Request-Id` e incluído nos logs e nas respostas de erro. Se o cliente ou o proxy já enviar um `X-Request-Id` válido, ele é reaproveitado, o que permite rastrear uma requisição entre serviços.
 
-# Testes 
+# Testes e qualidade
+
+Os comandos abaixo precisam do Node.js 24.9+ na máquina. Sem Node, rode-os dentro do container de desenvolvimento, por exemplo:
+
+```bash
+docker-compose --file docker-compose.dev.yml exec node npm run test
+```
 
 Testes unitários:
 
@@ -360,10 +387,28 @@ Cobertura de testes:
 npm run test:cov
 ```
 
+Lint (corrige automaticamente o que for possível):
+
+```bash
+npm run lint
+```
+
+Formatação com o Prettier:
+
+```bash
+npm run format
+```
+
+### CI
+
+A cada push na `main` e em cada pull request, o GitHub Actions (`.github/workflows/ci.yml`) executa: lint, verificação de formatação, shellcheck dos scripts, build, testes unitários e e2e, auditoria de segurança das dependências de produção e build da imagem Docker.
+
+O Dependabot (`.github/dependabot.yml`) abre pull requests semanais com atualizações das dependências npm, das imagens Docker e das GitHub Actions.
+
 ## Contato
 
 - Autor - [Bayma](https://testeemproducao.com.br/)
 
 ## Licença
 
-O Nest é licenciado sob a [licença MIT](LICENSE).
+Este projeto usa a licença ISC (veja o `package.json`). O Nest é licenciado sob a [licença MIT](https://github.com/nestjs/nest/blob/master/LICENSE).
