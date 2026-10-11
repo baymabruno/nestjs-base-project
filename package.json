@@ -4,7 +4,7 @@
   "description": "NestJS Base Project",
   "author": "Bayma",
   "private": true,
-  "license": "ISC",
+  "license": "UNLICENSED",
   "type": "module",
   "engines": {
     "node": ">=26"
@@ -45,7 +45,6 @@
     "@nestjs/throttler": "^6.7.1",
     "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
-    "hbs": "^4.3.1",
     "helmet": "^8.3.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -79,7 +78,6 @@
   },
   "overrides": {
     "basic-ftp": "^6.2.1",
-    "handlebars": "^4.7.10",
     "js-yaml": "^4.3.2",
     "pm2": {
       "chokidar": "^4.0.3"

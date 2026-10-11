@@ -44,8 +44,7 @@ Este documento explica o sistema. A instalação e a operação de cada ambiente
 
 3. Revise o que é específico desta base:
    - `package.json`: `description`, `author`, `version` e a URL do repositório;
-   - `views/index.hbs`: a página inicial;
-   - `src/app.controller.ts`: as rotas de exemplo `/api/v1/status` e `/api/v1/axios`, que podem ser removidas;
+   - `src/app.controller.ts` e `src/app.service.ts`: o exemplo de chamada HTTP a outro serviço (`/api/v1/axios`), que pode ser removido;
    - `src/users/users.service.ts`: os usuários de demonstração, a serem trocados por uma persistência (veja [Persistência de usuários](#persistência-de-usuários)).
 4. Siga o [guia do ambiente](#documentação-dos-ambientes) para subir o projeto. A instalação gera um `.env` com chaves próprias para o novo projeto.
 
@@ -75,7 +74,7 @@ src/
 ├── main.ts                     inicialização (logger, observabilidade)
 ├── app.setup.ts                configuração da aplicação: helmet, CORS, prefixo /api, versionamento, validação, Swagger
 ├── app.module.ts               módulo principal: configuração, rate limit, módulos e middlewares
-├── app.controller.ts           página inicial e rotas de exemplo
+├── app.controller.ts           exemplo de chamada HTTP a outro serviço (removível)
 ├── observe.ts                  integração opcional com o @nestjs/observe
 ├── config/                     validação das variáveis de ambiente (Zod)
 ├── authorization/              login, refresh token, JWKS, guards, decorators e schemas
@@ -84,7 +83,7 @@ src/
 ├── common/                     contexto da requisição, logger e propagação do X-Request-Id
 ├── middleware/                 ID de requisição e log de cada requisição
 └── filters/                    formato padrão das respostas de erro
-test/                           testes e2e
+test/                           testes e2e (http, swagger e auth) e utilitários (support/)
 docker/                         Dockerfiles e scripts do PM2
 docs/                           guias de instalação e operação dos ambientes
 ```
@@ -101,12 +100,10 @@ docs/                           guias de instalação e operação dos ambientes
 
 ## Endpoints
 
-As rotas da API ficam sob o prefixo `/api/v1`. A página inicial, o health check, o JWKS e o Swagger ficam fora do prefixo e do versionamento.
+As rotas da API ficam sob o prefixo `/api/v1`. O health check, o JWKS e o Swagger ficam fora do prefixo e do versionamento.
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/` | Página inicial |
-| `GET` | `/api/v1/status` | Exemplo de rota pública |
 | `GET` | `/api/v1/axios` | Exemplo de requisição HTTP para outro serviço com o `HttpModule` |
 | `POST` | `/api/v1/auth/login` | Login; retorna o access token e o refresh token |
 | `POST` | `/api/v1/auth/refresh` | Troca um refresh token por um novo par de tokens |
@@ -282,4 +279,4 @@ Ele não propõe as atualizações de versão maior que dependem de uma decisão
 
 ## Licença
 
-Este projeto usa a licença ISC (veja o `package.json`). O Nest é licenciado sob a [licença MIT](https://github.com/nestjs/nest/blob/master/LICENSE).
+Projeto de uso interno, sem licença de distribuição (`"license": "UNLICENSED"` no `package.json`). O Nest é licenciado sob a [licença MIT](https://github.com/nestjs/nest/blob/master/LICENSE).

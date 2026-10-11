@@ -31,7 +31,6 @@ WORKDIR /var/www/html/
 COPY --from=build --chown=node:node /var/www/html/package.json ./
 COPY --from=build --chown=node:node /var/www/html/node_modules ./node_modules
 COPY --from=build --chown=node:node /var/www/html/dist ./dist
-COPY --chown=node:node views ./views
 COPY --chown=node:node ecosystem.config.cjs ./
 COPY --chown=node:node docker/pm2-logrotate-*.sh ./docker/
 RUN mkdir logs && chown node:node logs

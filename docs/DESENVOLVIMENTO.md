@@ -112,7 +112,6 @@ O `./setup.sh install dev` já faz isso.
 
 | Endereço | Descrição |
 |---|---|
-| http://localhost:3000 | Página inicial |
 | http://localhost:3000/doc | Swagger (com `SWAGGER="true"`, o padrão em desenvolvimento) |
 | http://localhost:3000/health | Health check |
 | `localhost:9229` | Debugger do Node.js (porta definida em `DEBUG_PORT`) |
@@ -254,7 +253,7 @@ Em seguida, siga o padrão do projeto (o módulo `src/authorization` serve de re
 2. **Validação:** no controller, informe o schema no parâmetro, por exemplo `@Body({ schema: createProductSchema })`. Para documentar a resposta, use `@ApiOkResponse({ standardSchema: productSchema })`.
 3. **Proteção:** use `@Authorize()` para exigir login, ou `@Authorize(Role.Admin)` para exigir uma role (veja [Autenticação e autorização](../README.md#autenticação-e-autorização-jwt) no README).
 4. **Logs:** use `new Logger(NomeDaClasse.name)`; o ID da requisição entra automaticamente em cada log.
-5. **Testes:** complete os `.spec.ts` gerados (o Vitest já está configurado, com `describe`, `it`, `expect` e `vi` globais) e acrescente os cenários de rota em `test/app.e2e-spec.ts`.
+5. **Testes:** complete os `.spec.ts` gerados (o Vitest já está configurado, com `describe`, `it`, `expect` e `vi` globais) e crie os testes de rota em `test/products.e2e-spec.ts`. Use o `createTestApp()` de `test/support/app.ts`, que monta a aplicação igual ao `main.ts` (veja `test/auth.e2e-spec.ts` como exemplo).
 
 Exemplo de schema e rota:
 

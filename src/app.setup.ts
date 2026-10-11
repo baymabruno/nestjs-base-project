@@ -15,7 +15,7 @@ import { RequestIdMiddleware } from './middleware/requestId.middleware.js';
 
 /**
  * Shared application setup, used by main.ts and the e2e tests so both run
- * with the same pipes, security headers and view engine.
+ * with the same middlewares, security headers, pipes and Swagger.
  */
 export function configureApp(app: NestExpressApplication): void {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
@@ -32,21 +32,13 @@ export function configureApp(app: NestExpressApplication): void {
   // rate limit and the logs) is the client IP and not the proxy IP
   app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
 
+  // helmet defaults, except "upgrade-insecure-requests": with it, the browser
+  // would request the page assets (e.g. the Swagger UI files) over https,
+  // breaking the page when it is served over http
   app.use(
     helmet({
       contentSecurityPolicy: {
-        directives: {
-          'style-src': [
-            "'self'",
-            "'unsafe-inline'",
-            'https://fonts.googleapis.com',
-          ],
-          'font-src': ["'self'", 'https://fonts.gstatic.com', 'data:'],
-          'img-src': ["'self'", 'data:', 'https:'],
-          // the browser would request the page assets (e.g. the Swagger UI
-          // files) over https, breaking the page when it is served over http
-          'upgrade-insecure-requests': null,
-        },
+        directives: { 'upgrade-insecure-requests': null },
       },
     }),
   );
@@ -64,10 +56,9 @@ export function configureApp(app: NestExpressApplication): void {
   });
 
   // API routes live under /api/v1 (/api/v2 when a breaking version is added).
-  // The home page and the health check stay at / and /health.
+  // The health check and the JWKS stay at /health and /.well-known.
   app.setGlobalPrefix('api', {
     exclude: [
-      { path: '/', method: RequestMethod.GET },
       { path: 'health', method: RequestMethod.GET },
       { path: '.well-known/jwks.json', method: RequestMethod.GET },
     ],
@@ -76,9 +67,6 @@ export function configureApp(app: NestExpressApplication): void {
 
   // validates the parameters declared with a schema, e.g. @Body({ schema })
   app.useGlobalPipes(new StandardSchemaValidationPipe());
-
-  app.setBaseViewsDir(join(import.meta.dirname, '..', 'views'));
-  app.setViewEngine('hbs');
 
   if (config.get('SWAGGER', { infer: true })) {
     // name and version come from package.json

@@ -14,10 +14,6 @@ describe('AppService', () => {
 
   beforeEach(() => get.mockReset());
 
-  it('returns the version from package.json', () => {
-    expect(service.getVersion()).toMatch(/^\d+\.\d+\.\d+/);
-  });
-
   it('returns the response of the example request', async () => {
     get.mockReturnValue(of({ data: { status: 'ok' } }));
 
