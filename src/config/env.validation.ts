@@ -1,4 +1,5 @@
 import { LogLevel } from '@nestjs/common';
+import { createPrivateKey, createPublicKey, KeyObject } from 'crypto';
 import { z } from 'zod';
 
 export const LOG_LEVELS: LogLevel[] = [
@@ -9,6 +10,20 @@ export const LOG_LEVELS: LogLevel[] = [
   'error',
   'fatal',
 ];
+
+// PEM keys are stored base64 encoded, so they fit in a single .env line
+const base64Pem = z
+  .string()
+  .min(1)
+  .transform((value) => Buffer.from(value, 'base64').toString('utf8'));
+
+const keyOrNull = (load: () => KeyObject) => {
+  try {
+    return load();
+  } catch {
+    return null;
+  }
+};
 
 export const envSchema = z
   .object({
@@ -40,16 +55,57 @@ export const envSchema = z
       }),
     THROTTLE_TTL: z.coerce.number().int().positive().default(60000),
     THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
-    JWT_KEY: z.string().min(1),
-    JWT_EXPIRES_IN: z.coerce.number().int().positive(),
+    // observability (@nestjs/observe): enabled only when key and secret are set
+    OBSERVE_APP_KEY: z.string().optional(),
+    OBSERVE_APP_SECRET: z.string().optional(),
+    OBSERVE_SERVICE_ID: z.string().min(1).default('nestjs-base-project'),
+    // RSA key pair (RS256): only this service signs tokens with the private
+    // key; other services validate them with the public key
+    JWT_PRIVATE_KEY: base64Pem,
+    JWT_PUBLIC_KEY: base64Pem,
+    JWT_ISSUER: z.string().min(1).default('nestjs-base-project'),
+    JWT_AUDIENCE: z.string().min(1).default('nestjs-base-project'),
+    // access token lifetime in seconds
+    JWT_EXPIRES_IN: z.coerce.number().int().positive().default(900),
+    // refresh token lifetime in seconds
+    JWT_REFRESH_EXPIRES_IN: z.coerce.number().int().positive().default(604800),
   })
   .superRefine((env, ctx) => {
-    if (isProduction(env.APP_ENVIRONMENT) && env.JWT_KEY.length < 32) {
+    const privateKey = keyOrNull(() => createPrivateKey(env.JWT_PRIVATE_KEY));
+    const publicKey = keyOrNull(() => createPublicKey(env.JWT_PUBLIC_KEY));
+
+    if (!privateKey || privateKey.asymmetricKeyType !== 'rsa') {
       ctx.addIssue({
         code: 'custom',
-        path: ['JWT_KEY'],
-        message: 'JWT_KEY must have at least 32 characters in production',
+        path: ['JWT_PRIVATE_KEY'],
+        message: 'must be a base64 encoded RSA private key (PEM)',
       });
+    } else if ((privateKey.asymmetricKeyDetails?.modulusLength ?? 0) < 2048) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['JWT_PRIVATE_KEY'],
+        message: 'RSA key must have at least 2048 bits',
+      });
+    }
+
+    if (!publicKey) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['JWT_PUBLIC_KEY'],
+        message: 'must be a base64 encoded RSA public key (PEM)',
+      });
+    }
+
+    if (privateKey && publicKey) {
+      const derived = createPublicKey(privateKey).export({ format: 'jwk' });
+      const given = publicKey.export({ format: 'jwk' });
+      if (derived.n !== given.n || derived.e !== given.e) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['JWT_PUBLIC_KEY'],
+          message: 'does not match JWT_PRIVATE_KEY',
+        });
+      }
     }
   });
 

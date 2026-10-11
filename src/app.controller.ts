@@ -1,10 +1,17 @@
-import { Controller, Get, Logger, Render } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Logger,
+  Render,
+  Version,
+  VERSION_NEUTRAL,
+} from '@nestjs/common';
 import {
   ApiBadGatewayResponse,
   ApiExcludeEndpoint,
   ApiOkResponse,
 } from '@nestjs/swagger';
-import { AppService } from './app.service';
+import { AppService } from './app.service.js';
 
 @Controller()
 export class AppController {
@@ -12,7 +19,9 @@ export class AppController {
 
   constructor(private readonly appService: AppService) {}
 
+  // home page: outside the /api prefix and the versioning
   @Get()
+  @Version(VERSION_NEUTRAL)
   @ApiExcludeEndpoint()
   @Render('index')
   render() {
@@ -22,14 +31,14 @@ export class AppController {
     };
   }
 
-  @Get('/api')
+  @Get('status')
   @ApiOkResponse()
-  index() {
-    this.logger.debug('api index called');
+  status() {
+    this.logger.debug('status called');
     return { success: '200' };
   }
 
-  @Get('/api/axios')
+  @Get('axios')
   @ApiOkResponse({ description: 'Response of the example request' })
   @ApiBadGatewayResponse({ description: 'Example request failed' })
   axiosExample() {

@@ -5,8 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -19,7 +22,7 @@ jobs:
       - run: npm ci
 
       - name: Shell scripts
-        run: shellcheck setup.sh docker/pm2-logrotate-settings.sh
+        run: shellcheck setup.sh docker/*.sh
 
       - name: Lint
         run: npm run lint:check
@@ -30,14 +33,77 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Unit tests
-        run: npm test
-
-      - name: E2E tests
-        run: npm run test:e2e
+      # unit and e2e tests; fails when coverage drops below the thresholds
+      - name: Tests and coverage
+        run: npm run test:cov
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
-      - name: Docker image
-        run: docker build -f docker/Dockerfile -t nestjs-base-project .
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          build-args: GIT_SHA=${{ github.sha }}
+          load: true
+          tags: nestjs-base-project:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # fails on fixable HIGH or CRITICAL vulnerabilities in the image
+      - name: Scan image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: nestjs-base-project:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      # pushes to main publish the image to ghcr.io/<owner>/<repo>
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Version from package.json
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: version
+        run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Image tags
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+            type=raw,value=${{ steps.version.outputs.value }}
+
+      - name: Publish image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          build-args: GIT_SHA=${{ github.sha }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha

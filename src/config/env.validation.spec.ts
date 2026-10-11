@@ -1,6 +1,8 @@
-import { envSchema } from './env.validation';
+import { generateJwtKeys } from '../../test/support/jwt-keys.js';
+import { envSchema } from './env.validation.js';
 
-const base = { JWT_KEY: 'secret', JWT_EXPIRES_IN: '3600' };
+const keys = generateJwtKeys();
+const base = { ...keys, JWT_EXPIRES_IN: '3600' };
 
 describe('envSchema', () => {
   it('applies defaults and converts types', () => {
@@ -13,8 +15,12 @@ describe('envSchema', () => {
       LOG_LEVEL: 'log',
       CORS_ORIGINS: [],
       TRUST_PROXY: false,
+      JWT_ISSUER: 'nestjs-base-project',
+      JWT_AUDIENCE: 'nestjs-base-project',
       JWT_EXPIRES_IN: 3600,
+      JWT_REFRESH_EXPIRES_IN: 604800,
     });
+    expect(env.JWT_PRIVATE_KEY).toContain('-----BEGIN PRIVATE KEY-----');
   });
 
   it('parses the CORS origin list', () => {
@@ -47,10 +53,19 @@ describe('envSchema', () => {
     );
   });
 
-  it('requires a strong JWT_KEY in production', () => {
+  it('rejects an invalid private key', () => {
     const result = envSchema.safeParse({
       ...base,
-      APP_ENVIRONMENT: 'production',
+      JWT_PRIVATE_KEY: Buffer.from('not a key').toString('base64'),
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a public key from another key pair', () => {
+    const result = envSchema.safeParse({
+      ...base,
+      JWT_PUBLIC_KEY: generateJwtKeys().JWT_PUBLIC_KEY,
     });
 
     expect(result.success).toBe(false);

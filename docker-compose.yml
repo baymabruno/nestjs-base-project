@@ -6,7 +6,6 @@ services:
     restart: unless-stopped
     # longer than PM2's kill_timeout, so the app can shut down gracefully
     stop_grace_period: 15s
-    command: npm run start:pm2
     build:
       context: ./
       dockerfile: ./docker/Dockerfile
@@ -15,6 +14,16 @@ services:
       - logs:/var/www/html/logs
     ports:
       - ${PORT:-3000}:${PORT:-3000}
+    # resource limits and hardening
+    deploy:
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT:-1}'
+          memory: ${MEMORY_LIMIT:-1g}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     logging:
       driver: json-file
       options:

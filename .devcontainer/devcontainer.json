@@ -1,0 +1,26 @@
+// VS Code Dev Container: the editor runs inside the development container,
+// using its node_modules (no need to copy them to the host).
+// Open with "Dev Containers: Reopen in Container".
+{
+  "name": "nestjs-base-project",
+  "dockerComposeFile": ["../docker-compose.dev.yml"],
+  "service": "node",
+  "workspaceFolder": "/var/www/html",
+  // keeps the app running with PM2 (hot reload) while the editor is open
+  "overrideCommand": false,
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "vitest.explorer"
+      ],
+      "settings": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true,
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  }
+}

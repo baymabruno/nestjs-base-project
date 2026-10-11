@@ -15,8 +15,8 @@
     "outDir": "./dist",
     "rootDir": "./",
     "types": [
-      "node",
-      "jest"
+      "vitest/globals",
+      "node"
     ],
     "incremental": true,
     "skipLibCheck": true,

@@ -4,13 +4,13 @@ import { ConfigService } from '@nestjs/config';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { firstValueFrom } from 'rxjs';
-import { Env } from './config/env.validation';
+import { Env } from './config/env.validation.js';
 
 @Injectable()
 export class AppService {
   private readonly logger = new Logger(AppService.name);
   private readonly version: string = JSON.parse(
-    readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
+    readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8'),
   ).version;
 
   constructor(

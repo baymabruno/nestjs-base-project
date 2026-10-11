@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
-import { Env } from '../config/env.validation';
-import { UsersService } from './users.service';
+import { Env } from '../config/env.validation.js';
+import { UsersService } from './users.service.js';
 
 const serviceFor = (APP_ENVIRONMENT: string) =>
   new UsersService(

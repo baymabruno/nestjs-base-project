@@ -24,325 +24,159 @@
 
 ## Descrição
 
-Projeto base em TypeScript com o framework [Nest](https://github.com/nestjs/nest).
+Projeto base em TypeScript com o framework [Nest](https://github.com/nestjs/nest) 12 (ESM), preparado para microsserviços: autenticação JWT com RS256 e JWKS, rastreamento de requisições entre serviços, API versionada, validação com Zod e Docker com PM2. Todo o sistema roda em Docker.
 
-# Requisitos
+Este documento explica o sistema. A instalação e a operação de cada ambiente estão nos guias abaixo.
 
-- Docker e Docker Compose
-- Node.js 24.9+ (apenas para rodar a aplicação ou os testes fora do Docker; veja o `.nvmrc`)
+## Documentação dos ambientes
 
-# Início rápido
+- [Desenvolvimento](docs/DESENVOLVIMENTO.md)
+- [Produção](docs/PRODUCAO.md)
 
-O `setup.sh` instala e executa a aplicação com Docker:
+## Visão geral
 
-Desenvolvimento (hot reload, debugger e Swagger):
+### Tecnologias
 
-```bash
-./setup.sh install dev
-```
-
-Produção:
-
-```bash
-./setup.sh install prod
-```
-
-O `install` verifica os requisitos, cria o `.env` a partir do `.env.example` (com um `JWT_KEY` aleatório) quando ele não existe, gera a imagem, sobe o container e aguarda o `/health` responder. Em desenvolvimento, também copia o `node_modules` do container para a pasta do projeto, para o editor reconhecer as dependências.
-
-| Comando | Descrição |
+| Área | Tecnologia |
 |---|---|
-| `./setup.sh install [dev\|prod]` | Configura, gera a imagem e sobe |
-| `./setup.sh start [dev\|prod]` | Sobe sem gerar a imagem novamente |
-| `./setup.sh stop [dev\|prod]` | Para e remove o container |
-| `./setup.sh restart [dev\|prod]` | Reinicia o container |
-| `./setup.sh logs [dev\|prod]` | Acompanha os logs |
-| `./setup.sh status [dev\|prod]` | Status do container e do PM2 |
+| Framework | NestJS 12 com Express 5, em ESM |
+| Linguagem | TypeScript 6 (modo strict) |
+| Execução | Node.js 24, com PM2 dentro do Docker |
+| Autenticação | Passport + JWT RS256, com refresh token e JWKS |
+| Validação | Zod (Standard Schema), também usado para gerar o Swagger |
+| Documentação da API | Swagger (OpenAPI) |
+| Testes | Vitest e Supertest |
+| Segurança | helmet, rate limit (`@nestjs/throttler`), CORS configurável |
+| Observabilidade | Logs estruturados com ID de requisição e `@nestjs/observe` (opcional) |
+| CI | GitHub Actions, Trivy e Dependabot |
 
-O ambiente padrão é `dev`. Em desenvolvimento, o debugger escuta na porta `9229`; para usar outra porta, defina `DEBUG_PORT` no `.env`.
+### Estrutura do projeto
 
-### Executando o setup em um container
-
-Para não precisar instalar nada além do Docker (sem bash, openssl ou Node.js na máquina), execute o `setup.sh` dentro de um container com o `docker-compose.setup.yml`. Execute a partir da raiz do projeto:
-
-Desenvolvimento:
-
-```bash
-docker-compose -f docker-compose.setup.yml run --rm setup install dev
+```
+src/
+├── main.ts                     inicialização (logger, observabilidade)
+├── app.setup.ts                configuração da aplicação: helmet, CORS, prefixo /api, versionamento, validação, Swagger
+├── app.module.ts               módulo principal: configuração, rate limit, módulos e middlewares
+├── app.controller.ts           página inicial e rotas de exemplo
+├── observe.ts                  integração opcional com o @nestjs/observe
+├── config/                     validação das variáveis de ambiente (Zod)
+├── authorization/              login, refresh token, JWKS, guards, decorators e schemas
+├── users/                      usuários, roles e o UsersService (onde entra a persistência)
+├── health/                     health check (/health)
+├── common/                     contexto da requisição, logger e propagação do X-Request-Id
+├── middleware/                 ID de requisição e log de cada requisição
+└── filters/                    formato padrão das respostas de erro
+test/                           testes e2e
+docker/                         Dockerfiles e scripts do PM2
+docs/                           guias de instalação e operação dos ambientes
 ```
 
-Produção:
-
-```bash
-docker-compose -f docker-compose.setup.yml run --rm setup install prod
-```
-
-Todos os comandos do `setup.sh` funcionam da mesma forma:
-
-Subir sem gerar a imagem novamente:
-
-```bash
-docker-compose -f docker-compose.setup.yml run --rm setup start dev
-```
-
-Acompanhar os logs:
-
-```bash
-docker-compose -f docker-compose.setup.yml run --rm setup logs dev
-```
-
-Ver o status:
-
-```bash
-docker-compose -f docker-compose.setup.yml run --rm setup status dev
-```
-
-Parar:
-
-```bash
-docker-compose -f docker-compose.setup.yml run --rm setup stop dev
-```
-
-Para encurtar, crie um alias:
-
-```bash
-alias setup='docker-compose -f docker-compose.setup.yml run --rm setup'
-```
-
-Depois, use o alias no lugar do comando completo:
-
-```bash
-setup install dev
-```
-
-Como funciona:
-
-- O container de setup tem o Docker CLI e usa o Docker da máquina pelo `/var/run/docker.sock`, então os containers da aplicação rodam na máquina normalmente.
-- A pasta do projeto é montada no mesmo caminho da máquina (`${PWD}`), por isso o comando precisa ser executado da raiz do projeto.
-- Os arquivos criados pelo setup (`.env`, `node_modules`) ficam com o mesmo dono da pasta do projeto.
-- Funciona em Linux e macOS. No Windows, execute pelo WSL.
-
-> Dar a um container acesso ao socket do Docker dá a ele controle total sobre o Docker da máquina. O container de setup apenas executa o `setup.sh` deste projeto e é removido ao fim do comando (`--rm`).
-
-# Configuração
-
-Copie o `.env.example` para `.env` e preencha os valores. As variáveis são validadas na inicialização (`src/config/env.validation.ts`), e a aplicação não sobe se alguma estiver faltando ou for inválida.
-
-| Variável | Descrição |
-|---|---|
-| `APP_ENVIRONMENT` | `production` ativa os logs em JSON, exige um `JWT_KEY` com pelo menos 32 caracteres e desativa os usuários de demonstração |
-| `PORT` | Porta HTTP (padrão `3000`) |
-| `SWAGGER` | `true` disponibiliza a documentação da API em `/doc` |
-| `LOG_LEVEL` | `verbose`, `debug`, `log`, `warn`, `error` ou `fatal` |
-| `CORS_ORIGINS` | Origens permitidas, separadas por vírgula; vazio permite qualquer origem |
-| `TRUST_PROXY` | Proxies reversos confiáveis: `false` (padrão), `true`, o número de proxies na frente da aplicação (ex.: `1`) ou uma lista de endereços |
-| `THROTTLE_TTL` / `THROTTLE_LIMIT` | Limite de requisições por IP (padrão 100 por minuto; o login é limitado a 5 por minuto) |
-| `JWT_KEY` / `JWT_EXPIRES_IN` | Chave de assinatura do token e validade em segundos |
-| `PM2_INSTANCES` | Número de processos do PM2 em produção (padrão `1`, `max` para um por núcleo de CPU) |
-| `DEBUG_PORT` | Porta do debugger em desenvolvimento (padrão `9229`) |
-
-# Produção 
-
-### Antes do deploy
-
-Defina estas variáveis no `.env` do servidor:
-
-- `APP_ENVIRONMENT="production"`: ativa os logs em JSON e desativa os usuários de demonstração
-- `JWT_KEY`: uma chave aleatória forte com pelo menos 32 caracteres; caso contrário, a aplicação não sobe. O `setup.sh` gera uma automaticamente ao criar o `.env`. Para gerar manualmente:
-  ```bash
-  openssl rand -base64 48
-  ```
-- `CORS_ORIGINS`: as origens do front-end que podem chamar a API, por exemplo `"https://app.example.com,https://admin.example.com"`. Se ficar vazia, qualquer origem é permitida.
-- `TRUST_PROXY`: se a aplicação fica atrás de um proxy reverso ou load balancer (nginx, Traefik, ALB etc.), informe quantos proxies existem na frente dela, por exemplo `"1"`. Sem isso, todas as requisições parecem vir do IP do proxy, e o limite de requisições (inclusive o de 5 logins por minuto) passa a valer para todos os clientes juntos. Só ative quando houver de fato um proxy, porque o cabeçalho `X-Forwarded-For` pode ser forjado por quem acessa a aplicação diretamente.
-
-### Executando a aplicação
-
-```bash
-docker-compose up -d --build
-```
-
-O container executa a aplicação com o [PM2](https://pm2.keymetrics.io/) (`ecosystem.config.js`), com um usuário sem privilégios de root e um health check em `/health`.
-
-Os logs são gravados em `logs/api.log` (mantido no volume Docker `logs`) e também na saída padrão:
-
-Logs do container:
-
-```bash
-docker-compose logs -f
-```
-
-Arquivo de log:
-
-```bash
-docker-compose exec node tail -f logs/api.log
-```
-
-### PM2
-
-| Arquivo | Usado por | O que executa |
-|---|---|---|
-| `ecosystem.config.js` | `docker/Dockerfile` (`npm run start:pm2`) | `dist/main.js` em modo cluster |
-| `ecosystem.dev.config.js` | `docker/DockerfileDev` (`npm run start:pm2-dev`) | `nest start --debug --watch` |
-| `docker/pm2-logrotate-settings.sh` | os dois Dockerfiles, na geração da imagem | configurações do `pm2-logrotate` |
-
-O número de processos é definido pela variável `PM2_INSTANCES` no `.env` (padrão `1`, ou `max` para um por núcleo de CPU).
-
-Ao parar ou reiniciar, o PM2 aguarda até 10 segundos (`kill_timeout`) para a aplicação concluir as requisições em andamento, e o Docker aguarda até 15 segundos (`stop_grace_period`) antes de encerrar o container.
-
-> Com mais de uma instância, cada processo mantém seus próprios contadores de limite de requisições, então o limite efetivo é multiplicado pelo número de instâncias.
-
-Os logs são rotacionados diariamente ou ao atingir 500MB, mantendo 10 arquivos. Para alterar, edite o `docker/pm2-logrotate-settings.sh` e gere a imagem novamente.
-
-Comandos úteis, executados dentro do container:
-
-Listar os processos:
-
-```bash
-docker-compose exec node pm2 status
-```
-
-Acompanhar os logs:
-
-```bash
-docker-compose exec node pm2 logs
-```
-
-Painel de CPU e memória:
-
-```bash
-docker-compose exec node pm2 monit
-```
-
-Reiniciar sem downtime:
-
-```bash
-docker-compose exec node pm2 reload node-backend
-```
-
-Para publicar uma nova versão, gere a imagem novamente:
-
-```bash
-docker-compose up -d --build
-```
-
-#### Sem Docker
-
-O mesmo `ecosystem.config.js` funciona diretamente em um servidor com Node.js 24.9+.
-
-1. Instale o PM2:
-
-```bash
-npm install -g pm2
-```
-
-2. Instale o módulo de rotação de logs:
-
-```bash
-pm2 install pm2-logrotate
-```
-
-3. Aplique as configurações de rotação de logs:
-
-```bash
-./docker/pm2-logrotate-settings.sh
-```
-
-4. Instale as dependências:
-
-```bash
-npm ci
-```
-
-5. Gere o build:
-
-```bash
-npm run build
-```
-
-6. Inicie a aplicação:
-
-```bash
-pm2 start ecosystem.config.js
-```
-
-7. Salve a lista de processos:
-
-```bash
-pm2 save
-```
-
-8. Configure o PM2 para iniciar junto com o sistema (depois, execute com `sudo` o comando exibido):
-
-```bash
-pm2 startup
-```
-
-# Desenvolvimento 
-
-### Executando a aplicação
-
-Suba o ambiente:
-
-```bash
-docker-compose --file docker-compose.dev.yml up -d --build
-```
-
-Copie o `node_modules` do container para a pasta do projeto:
-
-```bash
-docker cp nestjs-base-project:/var/www/html/node_modules/ ./
-```
-
-A aplicação roda com o PM2 (`ecosystem.dev.config.js`), recarrega ao alterar arquivos, e um debugger pode se conectar na porta `9229` (ou na porta definida em `DEBUG_PORT`). Os logs são gravados em `logs/api.log` na pasta do projeto.
-
-Ao adicionar ou atualizar dependências no `package.json`, recrie o container com o `-V`, que descarta o volume antigo do `node_modules`:
-
-```bash
-docker-compose --file docker-compose.dev.yml up -d --build -V
-```
-
-O `./setup.sh install dev` já faz isso.
-
-# Endpoints
+### Caminho de uma requisição
+
+1. O middleware de ID de requisição define o `X-Request-Id` e abre o contexto da requisição.
+2. O rate limit verifica o limite do IP (e, no login, também o do usuário).
+3. Nas rotas protegidas, o Passport valida o access token e o guard de roles verifica as permissões.
+4. O schema Zod da rota valida o corpo, a query e os parâmetros.
+5. O controller e os services executam; todos os logs saem com o ID da requisição.
+6. Em caso de erro, o filtro global responde no formato padrão.
+7. Ao final, o log da requisição registra método, rota, status e duração.
+
+## Endpoints
+
+As rotas da API ficam sob o prefixo `/api/v1`. A página inicial, o health check, o JWKS e o Swagger ficam fora do prefixo e do versionamento.
 
 | Método | Rota | Descrição |
 |---|---|---|
 | `GET` | `/` | Página inicial |
-| `GET` | `/api` | Exemplo de rota pública |
-| `GET` | `/api/axios` | Exemplo de requisição HTTP externa com o `HttpModule` |
-| `POST` | `/api/auth/login` | Login; retorna o token de acesso |
-| `GET` | `/api/auth/profile` | Dados do usuário logado (requer a role `admin`) |
+| `GET` | `/api/v1/status` | Exemplo de rota pública |
+| `GET` | `/api/v1/axios` | Exemplo de requisição HTTP para outro serviço com o `HttpModule` |
+| `POST` | `/api/v1/auth/login` | Login; retorna o access token e o refresh token |
+| `POST` | `/api/v1/auth/refresh` | Troca um refresh token por um novo par de tokens |
+| `GET` | `/api/v1/auth/profile` | Dados do usuário logado (requer a role `admin`) |
+| `GET` | `/.well-known/jwks.json` | Chave pública para validar os tokens (JWKS) |
 | `GET` | `/health` | Health check |
 | `GET` | `/doc` | Documentação Swagger (quando `SWAGGER="true"`) |
 | `GET` | `/doc-json` | Especificação OpenAPI em JSON (quando `SWAGGER="true"`) |
 
-# Autorização
+### Versionamento
 
-`POST /api/auth/login` retorna `{ "access_token": "..." }`. Envie o token no header `Authorization: Bearer <token>`.
-
-Proteja uma rota (ou um controller inteiro) com `@Authorize()`. Ao informar roles, o acesso fica restrito a elas, e administradores têm acesso a tudo:
+O versionamento é pela URL, com a versão `1` como padrão. Para criar uma versão nova de uma rota sem quebrar quem usa a atual, declare a versão no controller ou na rota. A versão 2 fica disponível em `/api/v2/...`, e a versão 1 continua funcionando:
 
 ```ts
-@Get('/profile')
-@Authorize(Role.Admin)
-getProfile() {}
+@Controller({ path: 'auth', version: '2' })
 ```
 
-Fora de produção, os usuários de demonstração `bayma` (admin) e `maria` (gest) estão disponíveis com a senha `teste`.
+## Autenticação e autorização (JWT)
+
+### Como funciona
+
+Este serviço autentica os usuários e emite dois tokens JWT assinados com **RS256**:
+
+| Token | Para que serve | Validade |
+|---|---|---|
+| **Access token** | Acessar as rotas protegidas, enviado no header `Authorization: Bearer <token>` | Curta: `JWT_EXPIRES_IN` (padrão 15 minutos) |
+| **Refresh token** | Obter um novo par de tokens quando o access token expira, sem pedir a senha de novo | Longa: `JWT_REFRESH_EXPIRES_IN` (padrão 7 dias) |
+
+Os tokens são assinados com a chave privada (`JWT_PRIVATE_KEY`), que só este serviço tem, e validados com a chave pública, publicada em `/.well-known/jwks.json`. Assim, qualquer serviço consegue validar os tokens sem precisar de um segredo compartilhado. Um token de um tipo não é aceito no lugar do outro.
+
+### Utilização
+
+1. O cliente faz login em `POST /api/v1/auth/login`, com usuário e senha, e recebe o access token e o refresh token.
+2. Em cada requisição a uma rota protegida, envia o access token no header `Authorization`.
+3. Quando a API responde `401` porque o access token expirou, o cliente envia o refresh token para `POST /api/v1/auth/refresh`, recebe um novo par de tokens e repete a requisição.
+4. Se o refresh também for recusado, a sessão expirou e o usuário precisa fazer login de novo.
+
+A API responde `401` quando o token falta, é inválido ou expirou; `403` quando o usuário não tem a role exigida pela rota; e `429` quando o limite de tentativas de login é atingido (5 por minuto por IP e 10 a cada 15 minutos por usuário).
+
+No navegador, evite guardar o refresh token no `localStorage`, porque qualquer script injetado na página (XSS) consegue lê-lo.
+
+### Protegendo rotas
+
+As rotas e os controllers são protegidos com o decorator `@Authorize()`, que exige um access token válido. Sem roles, ele libera qualquer usuário autenticado; com roles, restringe o acesso a elas. Administradores têm acesso a todas as rotas protegidas. Na rota, o usuário logado fica disponível em `req.user`.
+
+As roles ficam em `src/users/enums/role.enum.ts`.
+
+### Validação em outros serviços
+
+Outros serviços (microsserviços, gateways) validam o access token sozinhos, sem chamar este serviço a cada requisição. Para isso, usam a chave pública do JWKS (`/.well-known/jwks.json`) e conferem a assinatura RS256, o emissor (`JWT_ISSUER`), o público (`JWT_AUDIENCE`), a expiração e o tipo do token. A maioria das bibliotecas de JWT com suporte a JWKS faz essa validação a partir da URL.
+
+As roles não vão dentro do token: este serviço as consulta a cada requisição, para que uma mudança de permissão valha na hora. Outros serviços que precisem das roles podem consultar `GET /api/v1/auth/profile` com o mesmo token.
+
+### Limitações
+
+- O refresh token não fica armazenado no servidor. Por isso funciona com várias instâncias, mas não pode ser revogado antes de expirar: não há logout no servidor. Para permitir logout ou revogação, é preciso guardar os tokens em um armazenamento compartilhado (Redis ou banco de dados).
+- Os limites de tentativas de login ficam em memória, por processo. Com várias instâncias, cada uma conta separadamente.
 
 ### Persistência de usuários
 
-Os usuários ficam em memória, em `src/users/users.service.ts`, e em produção a lista fica vazia, então nenhum login funciona até existir uma persistência. Para conectar um banco de dados ou outro serviço (por exemplo, um microsserviço de usuários), basta alterar o `UsersService`:
+Os usuários ficam em memória, em `src/users/users.service.ts`: são os usuários de demonstração `bayma` (role `admin`) e `maria` (role `gest`), desativados quando `APP_ENVIRONMENT` é `production`. Para conectar um banco de dados ou outro serviço (por exemplo, um microsserviço de usuários), basta alterar o `UsersService`:
 
 1. Implemente o método `findOne(username)` buscando o usuário na sua fonte de dados. Ele deve retornar um `User` (`src/users/interfaces/user.interface.ts`), com a senha já em hash bcrypt, ou `undefined` quando o usuário não existir.
 2. Remova a lista `DEMO_USERS`.
 
-O restante da autenticação (login, JWT, roles) usa apenas o `UsersService` e não precisa mudar. Para gerar o hash bcrypt de uma senha (com o ambiente de desenvolvimento rodando):
+O restante da autenticação (login, JWT, roles) usa apenas o `UsersService` e não precisa mudar.
 
-```bash
-docker-compose --file docker-compose.dev.yml exec node node -e "console.log(require('bcrypt').hashSync('senha', 10))"
+## Validação
+
+O corpo, a query e os parâmetros das requisições são validados com schemas [Zod](https://zod.dev), a mesma biblioteca que valida o `.env`. O mesmo schema também gera a documentação do Swagger. Exemplo:
+
+```ts
+const createUserSchema = z
+  .strictObject({
+    name: z.string().min(1),
+    email: z.email(),
+  })
+  .meta({ id: 'CreateUser' }); // nome do schema no Swagger
+
+@Post()
+create(@Body({ schema: createUserSchema }) body: z.infer<typeof createUserSchema>) {}
 ```
 
-# Respostas de erro
+Para documentar a resposta no Swagger, use `@ApiOkResponse({ standardSchema: schema })`. Os schemas de autenticação estão em `src/authorization/schemas/auth.schemas.ts`.
+
+Com `z.strictObject`, campos que não estão no schema são rejeitados. Uma requisição inválida retorna 400 com a lista de erros em `message`.
+
+## Respostas de erro
 
 Todos os erros da API seguem o mesmo formato:
 
@@ -350,58 +184,67 @@ Todos os erros da API seguem o mesmo formato:
 {
   "statusCode": 404,
   "error": "Not Found",
-  "message": "Cannot GET /nada",
-  "path": "/nada",
+  "message": "Cannot GET /api/v1/nada",
+  "path": "/api/v1/nada",
   "timestamp": "2026-10-11T19:53:46.875Z",
   "requestId": "9e4734da-b071-4f29-93bd-af5dd27caf51"
 }
 ```
 
-Erros inesperados (500) retornam apenas `Internal server error`, e os detalhes, com o stack trace, ficam no log.
+Erros inesperados (500) retornam apenas `Internal server error`, e os detalhes, com o stack trace, ficam no log. URLs fora da API (que não começam com `/api`) e inexistentes retornam a página 404 padrão do Express.
 
-Cada requisição recebe um ID, devolvido no cabeçalho `X-Request-Id` e incluído nos logs e nas respostas de erro. Se o cliente ou o proxy já enviar um `X-Request-Id` válido, ele é reaproveitado, o que permite rastrear uma requisição entre serviços.
+## Rastreamento de requisições
 
-# Testes e qualidade
+Cada requisição recebe um ID, devolvido no cabeçalho `X-Request-Id`. Se o cliente ou o proxy já enviar um `X-Request-Id` válido, ele é reaproveitado. O ID aparece:
 
-Os comandos abaixo precisam do Node.js 24.9+ na máquina. Sem Node, rode-os dentro do container de desenvolvimento, por exemplo:
+- em todos os logs escritos durante a requisição, inclusive os dos services, sem precisar passá-lo como parâmetro;
+- nas respostas de erro;
+- nas requisições feitas para outros serviços com o `HttpService` (`@nestjs/axios`), no cabeçalho `X-Request-Id`.
 
-```bash
-docker-compose --file docker-compose.dev.yml exec node npm run test
-```
+Assim, uma requisição pode ser rastreada de ponta a ponta entre os serviços. Para ler o ID no código, use `RequestContext.getRequestId()` (`src/common/request-context.ts`).
 
-Testes unitários:
+## Observabilidade
 
-```bash
-npm run test
-```
+O projeto vem integrado ao [`@nestjs/observe`](https://observe.nestjs.com), que envia traces, erros, logs e métricas para o serviço observe.nestjs.com (gratuito até 300 mil eventos por mês). A integração fica **desligada** enquanto `OBSERVE_APP_KEY` e `OBSERVE_APP_SECRET` estiverem vazios, e nesse caso nenhum dado sai da aplicação.
 
-Testes e2e:
+Quando ativada:
 
-```bash
-npm run test:e2e
-```
+- os dados das requisições (rotas, status, durações e logs) passam a ser enviados para um serviço externo;
+- o envio de trechos do código-fonte junto com os erros (`sourceContext`) está desligado em `src/observe.ts`;
+- erros esperados (400, 401, 403, 404 e 429) são enviados sem o detalhamento interno, o que reduz o número de eventos;
 
-Cobertura de testes:
+## Configuração
 
-```bash
-npm run test:cov
-```
+As variáveis ficam no `.env`, a partir do modelo `.env.example`. Elas são validadas na inicialização (`src/config/env.validation.ts`), e a aplicação não sobe se alguma estiver faltando ou for inválida.
 
-Lint (corrige automaticamente o que for possível):
+| Variável | Descrição |
+|---|---|
+| `APP_ENVIRONMENT` | `production` ativa os logs em JSON e desativa os usuários de demonstração |
+| `PORT` | Porta HTTP (padrão `3000`) |
+| `SWAGGER` | `true` disponibiliza a documentação da API em `/doc` |
+| `LOG_LEVEL` | `verbose`, `debug`, `log`, `warn`, `error` ou `fatal` |
+| `CORS_ORIGINS` | Origens permitidas, separadas por vírgula; vazio permite qualquer origem |
+| `TRUST_PROXY` | Proxies reversos confiáveis: `false` (padrão), `true`, o número de proxies na frente da aplicação (ex.: `1`) ou uma lista de endereços |
+| `THROTTLE_TTL` / `THROTTLE_LIMIT` | Limite de requisições por IP (padrão 100 por minuto; o login é limitado a 5 por minuto) |
+| `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` | Par de chaves RSA (PEM em base64): a privada assina os tokens e a pública os valida. São geradas automaticamente na instalação |
+| `JWT_ISSUER` / `JWT_AUDIENCE` | Emissor (`iss`) e público (`aud`) dos tokens (padrão `nestjs-base-project`) |
+| `JWT_EXPIRES_IN` | Validade do access token em segundos (padrão `900`, 15 minutos) |
+| `JWT_REFRESH_EXPIRES_IN` | Validade do refresh token em segundos (padrão `604800`, 7 dias) |
+| `OBSERVE_APP_KEY` / `OBSERVE_APP_SECRET` / `OBSERVE_SERVICE_ID` | Observabilidade com o `@nestjs/observe`; desligada enquanto a chave e o segredo estiverem vazios (veja [Observabilidade](#observabilidade)) |
 
-```bash
-npm run lint
-```
+## Qualidade
 
-Formatação com o Prettier:
-
-```bash
-npm run format
-```
+O projeto tem testes unitários (`src/**/*.spec.ts`) e e2e (`test/`), com meta mínima de cobertura de 90% (linhas, instruções e funções) e 80% (branches), definida em `vitest.config.ts`.
 
 ### CI
 
-A cada push na `main` e em cada pull request, o GitHub Actions (`.github/workflows/ci.yml`) executa: lint, verificação de formatação, shellcheck dos scripts, build, testes unitários e e2e, auditoria de segurança das dependências de produção e build da imagem Docker.
+A cada push na `main` e em cada pull request, o GitHub Actions (`.github/workflows/ci.yml`) executa:
+
+1. Shellcheck dos scripts, lint, verificação de formatação e build.
+2. Testes unitários e e2e com a meta de cobertura.
+3. Auditoria de segurança das dependências usadas pela aplicação (`npm audit --omit=dev`).
+4. Build da imagem Docker e scan de vulnerabilidades com o [Trivy](https://trivy.dev). O CI falha se houver vulnerabilidade alta ou crítica com correção disponível.
+5. Nos pushes na `main`, publicação da imagem no GitHub Container Registry.
 
 O Dependabot (`.github/dependabot.yml`) abre pull requests semanais com atualizações das dependências npm, das imagens Docker e das GitHub Actions.
 
