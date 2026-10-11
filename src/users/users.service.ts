@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Env, isProduction } from '../config/env.validation';
-import { Role } from './enums/role.enum';
-import { User } from './interfaces/user.interface';
+import { Env, isProduction } from '../config/env.validation.js';
+import { Role } from './enums/role.enum.js';
+import { User } from './interfaces/user.interface.js';
 
 // Demo users (password: "teste"), only available outside production.
 // Replace this in-memory store with a real persistence layer.

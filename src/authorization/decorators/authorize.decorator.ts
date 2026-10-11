@@ -4,10 +4,10 @@ import {
   ApiForbiddenResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { Role } from '../../users/enums/role.enum';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { RolesGuard } from '../guards/roles.guard';
-import { Roles } from './roles.decorator';
+import { Role } from '../../users/enums/role.enum.js';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
+import { RolesGuard } from '../guards/roles.guard.js';
+import { Roles } from './roles.decorator.js';
 
 /**
  * Requires a valid bearer token and, when roles are given, one of them.

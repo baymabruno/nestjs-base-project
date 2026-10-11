@@ -6,9 +6,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Role } from '../../users/enums/role.enum';
-import { Roles } from '../decorators/roles.decorator';
-import { AuthenticatedUser } from '../interfaces/jwt-payload.interface';
+import { Role } from '../../users/enums/role.enum.js';
+import { Roles } from '../decorators/roles.decorator.js';
+import { AuthenticatedUser } from '../interfaces/jwt-payload.interface.js';
 
 @Injectable()
 export class RolesGuard implements CanActivate {

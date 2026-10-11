@@ -1,10 +1,14 @@
-import { ValidationPipe } from '@nestjs/common';
+import {
+  RequestMethod,
+  StandardSchemaValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { join } from 'path';
-import { Env } from './config/env.validation';
+import { Env } from './config/env.validation.js';
 
 /**
  * Shared application setup, used by main.ts and the e2e tests so both run
@@ -45,15 +49,21 @@ export function configureApp(app: NestExpressApplication): void {
     maxAge: 86400,
   });
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  // API routes live under /api/v1 (/api/v2 when a breaking version is added).
+  // The home page and the health check stay at / and /health.
+  app.setGlobalPrefix('api', {
+    exclude: [
+      { path: '/', method: RequestMethod.GET },
+      { path: 'health', method: RequestMethod.GET },
+      { path: '.well-known/jwks.json', method: RequestMethod.GET },
+    ],
+  });
+  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
-  app.setBaseViewsDir(join(__dirname, '..', 'views'));
+  // validates the parameters declared with a schema, e.g. @Body({ schema })
+  app.useGlobalPipes(new StandardSchemaValidationPipe());
+
+  app.setBaseViewsDir(join(import.meta.dirname, '..', 'views'));
   app.setViewEngine('hbs');
 
   if (config.get('SWAGGER', { infer: true })) {

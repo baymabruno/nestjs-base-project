@@ -4,10 +4,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AllExceptionsFilter } from './all-exceptions.filter';
+import { AllExceptionsFilter } from './all-exceptions.filter.js';
 
 const hostFor = (requestId?: string) => {
-  const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+  const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
   const req = {
     method: 'GET',
     originalUrl: '/test',
@@ -24,10 +24,10 @@ describe('AllExceptionsFilter', () => {
   const filter = new AllExceptionsFilter();
 
   beforeEach(() => {
-    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
   });
 
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
 
   it('formats HTTP exceptions', () => {
     const { host, res } = hostFor('abc');

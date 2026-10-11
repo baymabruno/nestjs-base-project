@@ -4,9 +4,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Role } from '../../users/enums/role.enum';
-import { AuthenticatedUser } from '../interfaces/jwt-payload.interface';
-import { RolesGuard } from './roles.guard';
+import { Role } from '../../users/enums/role.enum.js';
+import { AuthenticatedUser } from '../interfaces/jwt-payload.interface.js';
+import { RolesGuard } from './roles.guard.js';
 
 const contextFor = (user?: AuthenticatedUser) =>
   ({
@@ -31,7 +31,7 @@ describe('RolesGuard', () => {
   });
 
   const requireRoles = (roles: Role[] | undefined) =>
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(roles);
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(roles);
 
   it('allows routes without required roles', () => {
     requireRoles(undefined);

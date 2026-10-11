@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   HealthCheck,
@@ -11,7 +11,8 @@ const HEAP_LIMIT_BYTES = 512 * 1024 * 1024;
 
 @ApiTags('Health')
 @SkipThrottle()
-@Controller('health')
+// infrastructure route: outside the /api prefix and the versioning
+@Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
   constructor(
     private readonly health: HealthCheckService,

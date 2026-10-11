@@ -1,16 +1,16 @@
-FROM node:24.21.0
+FROM node:24.21.0@sha256:3d27e5c11e5786e309ec3e03f93ae536eb36e6e5eb3714d5eb3300a36157add0
 
 LABEL maintainer="Vertex Digital"
 
-ENV TZ=America/Sao_Paulo
+ENV TZ=America/Sao_Paulo \
+    PATH=/var/www/html/node_modules/.bin:$PATH
 
 WORKDIR /var/www/html/
 COPY package*.json ./
 RUN npm ci
 
-RUN npm install pm2 -g
-COPY docker/pm2-logrotate-settings.sh ./docker/
-RUN pm2 install pm2-logrotate && ./docker/pm2-logrotate-settings.sh && pm2 kill
+COPY docker/pm2-logrotate-*.sh ./docker/
+RUN ./docker/pm2-logrotate-install.sh
 
 COPY . .
 

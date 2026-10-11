@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { STATUS_CODES } from 'http';
-import { getRequestId } from '../middleware/requestId.middleware';
+import { getRequestId } from '../middleware/requestId.middleware.js';
 
 export interface ErrorResponse {
   statusCode: number;

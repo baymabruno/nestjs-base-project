@@ -55,6 +55,8 @@ check_requirements() {
 
   command -v docker >/dev/null 2>&1 || fail "Docker is not installed: https://docs.docker.com/get-docker/"
   docker info >/dev/null 2>&1 || fail "Docker is not running. Start Docker and try again."
+  command -v openssl >/dev/null 2>&1 ||
+    fail "openssl is not installed. Install it or run the setup in a container (see the README)"
 
   success "Docker $(docker version --format '{{.Server.Version}}')"
 }
@@ -89,19 +91,31 @@ set_env() {
   mv "$tmp" .env
 }
 
-generate_key() {
-  if command -v openssl >/dev/null 2>&1; then
-    openssl rand -base64 48 | tr -d '\n'
-  else
-    head -c 48 /dev/urandom | base64 | tr -d '\n'
-  fi
+# Removes a variable from .env
+unset_env() {
+  local tmp
+  tmp="$(mktemp)"
+  grep -vE "^$1=" .env >"$tmp" || true
+  mv "$tmp" .env
+}
+
+# Generates the RSA key pair that signs (private) and validates (public) the
+# tokens, stored base64 encoded in .env
+generate_jwt_keys() {
+  local dir
+  dir="$(mktemp -d)"
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$dir/private.pem" 2>/dev/null
+  openssl pkey -in "$dir/private.pem" -pubout -out "$dir/public.pem"
+  set_env JWT_PRIVATE_KEY "$(openssl base64 -A -in "$dir/private.pem")"
+  set_env JWT_PUBLIC_KEY "$(openssl base64 -A -in "$dir/public.pem")"
+  rm -rf "$dir"
 }
 
 prepare_env() {
   if [ ! -f .env ]; then
     info "Creating .env from .env.example"
     cp .env.example .env
-    set_env JWT_KEY "$(generate_key)"
+    generate_jwt_keys
 
     if [ "$ENVIRONMENT" = "prod" ]; then
       set_env APP_ENVIRONMENT production
@@ -110,22 +124,25 @@ prepare_env() {
     fi
 
     fix_ownership .env
-    success ".env created with a random JWT_KEY"
+    success ".env created with a new JWT key pair"
   else
     info "Using the existing .env"
+
+    # .env files created before the RS256 keys were introduced
+    if [ -z "$(get_env JWT_PRIVATE_KEY)" ]; then
+      generate_jwt_keys
+      unset_env JWT_KEY
+      fix_ownership .env
+      success "JWT key pair added to .env (JWT_KEY is no longer used)"
+    fi
   fi
 
   if [ "$ENVIRONMENT" = "prod" ]; then
-    local jwt_key app_environment
-    jwt_key="$(get_env JWT_KEY)"
+    local app_environment
     app_environment="$(get_env APP_ENVIRONMENT)"
 
     [ "$app_environment" = "production" ] ||
       warn "APP_ENVIRONMENT is \"$app_environment\"; set it to \"production\" to disable the demo users"
-
-    if [ "$app_environment" = "production" ] && [ "${#jwt_key}" -lt 32 ]; then
-      fail "JWT_KEY must have at least 32 characters in production. Generate one with: openssl rand -base64 48"
-    fi
 
     [ -n "$(get_env CORS_ORIGINS)" ] ||
       warn "CORS_ORIGINS is empty, so any origin can call the API"

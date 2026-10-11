@@ -1,6 +1,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { NextFunction, Request, Response } from 'express';
+import { RequestContext } from '../common/request-context.js';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
 
@@ -14,7 +15,8 @@ export const getRequestId = (req: Request): string | undefined => {
 
 /**
  * Gives every request an id (reusing a valid X-Request-Id header when sent),
- * returned in the X-Request-Id response header and included in the logs.
+ * returned in the X-Request-Id response header, added to every log written
+ * during the request and sent on outgoing HttpService requests.
  */
 @Injectable()
 export class RequestIdMiddleware implements NestMiddleware {
@@ -25,6 +27,8 @@ export class RequestIdMiddleware implements NestMiddleware {
 
     req.headers[REQUEST_ID_HEADER] = requestId;
     res.setHeader('X-Request-Id', requestId);
-    next();
+
+    // everything that runs while handling the request can read the id
+    RequestContext.run({ requestId }, () => next());
   }
 }

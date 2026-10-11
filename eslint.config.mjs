@@ -12,7 +12,7 @@ export default tseslint.config(
   {
     files: ['**/*.ts'],
     languageOptions: {
-      globals: { ...globals.node, ...globals.jest },
+      globals: { ...globals.node, ...globals.vitest },
       sourceType: 'module',
     },
     rules: {
@@ -23,7 +23,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.js'],
+    files: ['**/*.cjs'],
     languageOptions: { globals: globals.node, sourceType: 'commonjs' },
   },
 );
