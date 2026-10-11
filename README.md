@@ -45,6 +45,7 @@ Este documento explica o sistema. A instalação e a operação de cada ambiente
 3. Revise o que é específico desta base:
    - `package.json`: `description`, `author`, `version` e a URL do repositório;
    - `views/index.hbs`: a página inicial (título, versão e links);
+   - `CHANGELOG.md`: o histórico desta base; recomece-o com a primeira versão do novo projeto (e ajuste o `version` do `package.json`);
    - `src/users/users.service.ts`: os usuários de demonstração, a serem trocados por uma persistência (veja [Persistência de usuários](#persistência-de-usuários)).
 4. Siga o [guia do ambiente](#documentação-dos-ambientes) para subir o projeto. A instalação gera um `.env` com chaves próprias para o novo projeto.
 
