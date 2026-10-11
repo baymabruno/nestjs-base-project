@@ -2,17 +2,18 @@ services:
   # application container
   node:
     container_name: nestjs-base-project
-    image: nodedocker
+    image: nestjs-base-project-dev
     restart: on-failure
-    command: "npm run start:pm2-dev"
+    command: npm run start:pm2-dev
     build:
-        context: ./
-        dockerfile: ./docker/DockerfileDev
+      context: ./
+      dockerfile: ./docker/DockerfileDev
     volumes:
       - ./:/var/www/html/
       - /var/www/html/node_modules
     ports:
-      - 3000:3000
+      - ${PORT:-3000}:${PORT:-3000}
+      - ${DEBUG_PORT:-9229}:9229
     networks:
       - nest_network
 

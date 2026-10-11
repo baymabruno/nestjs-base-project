@@ -1,16 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty } from 'class-validator';
+import { Role } from '../../users/enums/role.enum';
 
 export class UserLogged {
   @ApiProperty()
-  @IsNotEmpty()
   userId: string;
 
   @ApiProperty()
-  @IsNotEmpty()
   username: string;
 
-  @ApiProperty()
-  @IsNotEmpty()
-  roles: [string];
+  @ApiProperty({ enum: Role, isArray: true })
+  roles: Role[];
 }

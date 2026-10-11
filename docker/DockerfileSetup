@@ -1,0 +1,7 @@
+# Runs setup.sh with only Docker installed on the host.
+# The project folder and the Docker socket are mounted by docker-compose.setup.yml.
+FROM docker:29.8.2-cli
+
+RUN apk add --no-cache bash openssl
+
+ENTRYPOINT ["./setup.sh"]

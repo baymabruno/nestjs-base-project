@@ -1,11 +1,19 @@
-module.exports = [
-  {
-    name: 'node-backend',
-    script: './docker/pm2-logrotate-settings.sh && nest start --debug --watch',
-    error_file: '/var/www/html/logs/api.log',
-    out_file: '/var/www/html/logs/api.log',
-    env: {
-      TZ: 'America/Sao_Paulo',
+const { join } = require('path');
+
+const logFile = join(__dirname, 'logs', 'api.log');
+
+module.exports = {
+  apps: [
+    {
+      name: 'node-backend',
+      script: 'node_modules/@nestjs/cli/bin/nest.js',
+      args: 'start --debug 0.0.0.0:9229 --watch',
+      cwd: __dirname,
+      error_file: logFile,
+      out_file: logFile,
+      env: {
+        TZ: 'America/Sao_Paulo',
+      },
     },
-  },
-];
+  ],
+};
