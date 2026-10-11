@@ -1,5 +1,5 @@
 # ---- build ----
-FROM node:24.21.0-slim AS build
+FROM node:26.10.0-slim AS build
 
 WORKDIR /var/www/html/
 COPY package*.json ./
@@ -9,7 +9,7 @@ COPY . .
 RUN npm run build && npm prune --omit=dev --ignore-scripts
 
 # ---- runtime ----
-FROM node:24.21.0-slim
+FROM node:26.10.0-slim
 
 LABEL maintainer="Vertex Digital"
 
