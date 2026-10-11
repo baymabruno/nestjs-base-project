@@ -184,7 +184,7 @@ Ao ativar, considere que:
 O container tem um health check que chama `/health` a cada 30 segundos. Para ver o estado atual (`starting`, `healthy` ou `unhealthy`):
 
 ```bash
-docker inspect --format '{{.State.Health.Status}}' nestjs-base-project
+docker inspect --format '{{.State.Health.Status}}' dota-metrics
 ```
 
 O endpoint `/health` também pode ser usado por um load balancer ou por um monitoramento externo.

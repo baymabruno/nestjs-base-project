@@ -15,8 +15,8 @@ describe('envSchema', () => {
       LOG_LEVEL: 'log',
       CORS_ORIGINS: [],
       TRUST_PROXY: false,
-      JWT_ISSUER: 'nestjs-base-project',
-      JWT_AUDIENCE: 'nestjs-base-project',
+      JWT_ISSUER: 'dota-metrics',
+      JWT_AUDIENCE: 'dota-metrics',
       JWT_EXPIRES_IN: 3600,
       JWT_REFRESH_EXPIRES_IN: 604800,
     });

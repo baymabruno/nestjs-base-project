@@ -24,7 +24,7 @@ cd "$(dirname "$0")"
 
 COMMAND="${1:-}"
 ENVIRONMENT="${2:-dev}"
-CONTAINER="nestjs-base-project"
+CONTAINER="dota-metrics"
 HEALTH_TIMEOUT=180
 
 # When running inside the setup container (docker-compose.setup.yml)

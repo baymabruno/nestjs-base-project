@@ -1,8 +1,8 @@
 services:
   # application container
   node:
-    container_name: nestjs-base-project
-    image: nestjs-base-project
+    container_name: dota-metrics
+    image: dota-metrics
     restart: unless-stopped
     # longer than PM2's kill_timeout, so the app can shut down gracefully
     stop_grace_period: 15s

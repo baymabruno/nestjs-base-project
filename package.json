@@ -1,7 +1,7 @@
 {
-  "name": "nestjs-base-project",
-  "version": "1.0.0",
-  "description": "NestJS Base Project",
+  "name": "dota-metrics",
+  "version": "0.1.0",
+  "description": "Dota Metrics",
   "author": "Bayma",
   "private": true,
   "license": "UNLICENSED",

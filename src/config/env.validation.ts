@@ -58,13 +58,13 @@ export const envSchema = z
     // observability (@nestjs/observe): enabled only when key and secret are set
     OBSERVE_APP_KEY: z.string().optional(),
     OBSERVE_APP_SECRET: z.string().optional(),
-    OBSERVE_SERVICE_ID: z.string().min(1).default('nestjs-base-project'),
+    OBSERVE_SERVICE_ID: z.string().min(1).default('dota-metrics'),
     // RSA key pair (RS256): only this service signs tokens with the private
     // key; other services validate them with the public key
     JWT_PRIVATE_KEY: base64Pem,
     JWT_PUBLIC_KEY: base64Pem,
-    JWT_ISSUER: z.string().min(1).default('nestjs-base-project'),
-    JWT_AUDIENCE: z.string().min(1).default('nestjs-base-project'),
+    JWT_ISSUER: z.string().min(1).default('dota-metrics'),
+    JWT_AUDIENCE: z.string().min(1).default('dota-metrics'),
     // access token lifetime in seconds
     JWT_EXPIRES_IN: z.coerce.number().int().positive().default(900),
     // refresh token lifetime in seconds

@@ -2,7 +2,7 @@
 // using its node_modules (no need to copy them to the host).
 // Open with "Dev Containers: Reopen in Container".
 {
-  "name": "nestjs-base-project",
+  "name": "dota-metrics",
   "dockerComposeFile": ["../docker-compose.dev.yml"],
   "service": "node",
   "workspaceFolder": "/var/www/html",

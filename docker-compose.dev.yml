@@ -1,8 +1,8 @@
 services:
   # application container
   node:
-    container_name: nestjs-base-project
-    image: nestjs-base-project-dev
+    container_name: dota-metrics
+    image: dota-metrics-dev
     restart: on-failure
     command: npm run start:pm2-dev
     build:

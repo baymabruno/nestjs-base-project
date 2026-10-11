@@ -24,7 +24,7 @@
 
 ## Descrição
 
-Projeto base em TypeScript com o framework [Nest](https://github.com/nestjs/nest) 12 (ESM), preparado para microsserviços: autenticação JWT com RS256 e JWKS, rastreamento de requisições entre serviços, API versionada, validação com Zod e Docker com PM2. Todo o sistema roda em Docker.
+Dota Metrics: API em TypeScript com o framework [Nest](https://github.com/nestjs/nest) 12 (ESM), preparado para microsserviços: autenticação JWT com RS256 e JWKS, rastreamento de requisições entre serviços, API versionada, validação com Zod e Docker com PM2. Todo o sistema roda em Docker.
 
 Este documento explica o sistema. A instalação e a operação de cada ambiente estão nos guias abaixo.
 
@@ -249,7 +249,7 @@ As variáveis ficam no `.env`, a partir do modelo `.env.example`. Elas são vali
 | `TRUST_PROXY` | Proxies reversos confiáveis: `false` (padrão), `true`, o número de proxies na frente da aplicação (ex.: `1`) ou uma lista de endereços |
 | `THROTTLE_TTL` / `THROTTLE_LIMIT` | Limite de requisições por IP (padrão 100 por minuto; o login é limitado a 5 por minuto) |
 | `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` | Par de chaves RSA (PEM em base64): a privada assina os tokens e a pública os valida. São geradas automaticamente na instalação |
-| `JWT_ISSUER` / `JWT_AUDIENCE` | Emissor (`iss`) e público (`aud`) dos tokens (padrão `nestjs-base-project`) |
+| `JWT_ISSUER` / `JWT_AUDIENCE` | Emissor (`iss`) e público (`aud`) dos tokens (padrão `dota-metrics`) |
 | `JWT_EXPIRES_IN` | Validade do access token em segundos (padrão `900`, 15 minutos) |
 | `JWT_REFRESH_EXPIRES_IN` | Validade do refresh token em segundos (padrão `604800`, 7 dias) |
 | `OBSERVE_APP_KEY` / `OBSERVE_APP_SECRET` / `OBSERVE_SERVICE_ID` | Observabilidade com o `@nestjs/observe`; desligada enquanto a chave e o segredo estiverem vazios (veja [Observabilidade](#observabilidade)) |

@@ -71,8 +71,8 @@ describe('AuthorizationService', () => {
       sub: '1',
       username: 'bayma',
       token_use: 'access',
-      iss: 'nestjs-base-project',
-      aud: 'nestjs-base-project',
+      iss: 'dota-metrics',
+      aud: 'dota-metrics',
     });
     expect(jwtService.verify(tokens.refresh_token)).toMatchObject({
       token_use: 'refresh',

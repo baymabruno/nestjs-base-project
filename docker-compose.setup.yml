@@ -1,11 +1,11 @@
 # Runs setup.sh inside a container: only Docker is needed on the host.
 # Run it from the project root, e.g.:
 #   docker-compose -f docker-compose.setup.yml run --rm setup install dev
-name: nestjs-base-project-setup
+name: dota-metrics-setup
 
 services:
   setup:
-    image: nestjs-base-project-setup
+    image: dota-metrics-setup
     build:
       context: ./docker
       dockerfile: DockerfileSetup

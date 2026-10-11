@@ -95,7 +95,7 @@ docker-compose --file docker-compose.dev.yml up -d --build
 Copie o `node_modules` do container para a pasta do projeto:
 
 ```bash
-docker cp nestjs-base-project:/var/www/html/node_modules/ ./
+docker cp dota-metrics:/var/www/html/node_modules/ ./
 ```
 
 A aplicação roda com o PM2 (`ecosystem.dev.config.cjs`), recarrega ao alterar arquivos, e um debugger pode se conectar na porta `9229` (ou na porta definida em `DEBUG_PORT`). Os logs são gravados em `logs/api.log` na pasta do projeto.
