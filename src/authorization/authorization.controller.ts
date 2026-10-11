@@ -37,7 +37,8 @@ export class AuthorizationController {
 
   @Post('/login')
   @HttpCode(200)
-  // stricter limits to slow down password guessing: per IP and per username
+  // stricter limits against password guessing: requests per IP and failed
+  // logins per username
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(LoginAttemptsGuard)
   @ApiOkResponse({

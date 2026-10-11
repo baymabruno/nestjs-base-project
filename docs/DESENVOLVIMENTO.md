@@ -212,7 +212,7 @@ Respostas de erro:
 | `400` | Corpo inválido (campo faltando ou campo a mais) |
 | `401` | Usuário ou senha inválidos; token ausente, inválido ou expirado; refresh token usado como access token, ou o contrário |
 | `403` | Token válido, mas o usuário não tem a role exigida pela rota |
-| `429` | Limite de tentativas de login atingido: 5 por minuto por IP, ou 10 a cada 15 minutos para o mesmo usuário, vindas de qualquer IP |
+| `429` | Limite de login atingido: 5 tentativas por minuto do mesmo IP, ou 10 senhas erradas para o mesmo usuário (bloqueio de até 15 minutos; um login correto zera a contagem) |
 
 ## Usuários de demonstração e senhas
 
@@ -223,6 +223,57 @@ Para gerar o hash bcrypt de uma senha (com o ambiente rodando):
 ```bash
 docker-compose --file docker-compose.dev.yml exec node node -e "console.log(require('bcrypt').hashSync('senha', 10))"
 ```
+
+## Criando um novo módulo
+
+Os módulos são gerados com a CLI do Nest, dentro do container. Gere o módulo:
+
+```bash
+docker-compose --file docker-compose.dev.yml exec node npx nest g module products
+```
+
+Gere o controller:
+
+```bash
+docker-compose --file docker-compose.dev.yml exec node npx nest g controller products
+```
+
+Gere o service:
+
+```bash
+docker-compose --file docker-compose.dev.yml exec node npx nest g service products
+```
+
+A CLI cria os arquivos em `src/products/` (com os testes `.spec.ts`), usa os imports com `.js` exigidos pelo ESM e registra o módulo no `AppModule`. As rotas do controller ficam automaticamente em `/api/v1/products`.
+
+> O `nest g resource` também funciona, mas gera DTOs em classes sem validação. Como este projeto valida com schemas Zod, um corpo declarado com essas classes **não é validado**. Troque os DTOs por schemas, como abaixo.
+
+Em seguida, siga o padrão do projeto (o módulo `src/authorization` serve de referência):
+
+1. **Schemas:** crie `src/products/schemas/products.schemas.ts` com os schemas Zod do corpo e da resposta. Use `z.strictObject` para rejeitar campos a mais e `.meta({ id: 'Nome' })` para nomear o schema no Swagger.
+2. **Validação:** no controller, informe o schema no parâmetro, por exemplo `@Body({ schema: createProductSchema })`. Para documentar a resposta, use `@ApiOkResponse({ standardSchema: productSchema })`.
+3. **Proteção:** use `@Authorize()` para exigir login, ou `@Authorize(Role.Admin)` para exigir uma role (veja [Autenticação e autorização](../README.md#autenticação-e-autorização-jwt) no README).
+4. **Logs:** use `new Logger(NomeDaClasse.name)`; o ID da requisição entra automaticamente em cada log.
+5. **Testes:** complete os `.spec.ts` gerados (o Vitest já está configurado, com `describe`, `it`, `expect` e `vi` globais) e crie os testes de rota em `test/products.e2e-spec.ts`. Use o `createTestApp()` de `test/support/app.ts`, que monta a aplicação igual ao `main.ts` (veja `test/auth.e2e-spec.ts` como exemplo).
+
+Exemplo de schema e rota:
+
+```ts
+export const createProductSchema = z
+  .strictObject({
+    name: z.string().min(1).max(100),
+    price: z.number().positive(),
+  })
+  .meta({ id: 'CreateProduct' });
+
+@Post()
+@Authorize(Role.Admin)
+create(@Body({ schema: createProductSchema }) body: z.infer<typeof createProductSchema>) {
+  return this.productsService.create(body);
+}
+```
+
+Em Linux, os arquivos criados pelo container ficam com o dono `root`. Para evitar isso, gere os arquivos pelo terminal do [Dev Container](#dev-container-vs-code), ou ajuste o dono depois com `sudo chown -R $USER src`.
 
 ## Testes e qualidade
 

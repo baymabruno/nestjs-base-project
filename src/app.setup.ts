@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { readFileSync } from 'fs';
 import helmet from 'helmet';
 import { join } from 'path';
 import { Env } from './config/env.validation.js';
@@ -14,7 +15,7 @@ import { RequestIdMiddleware } from './middleware/requestId.middleware.js';
 
 /**
  * Shared application setup, used by main.ts and the e2e tests so both run
- * with the same pipes, security headers and view engine.
+ * with the same middlewares, security headers, pipes, view engine and Swagger.
  */
 export function configureApp(app: NestExpressApplication): void {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
@@ -35,6 +36,7 @@ export function configureApp(app: NestExpressApplication): void {
     helmet({
       contentSecurityPolicy: {
         directives: {
+          // home page: Google Fonts and the Nest logo
           'style-src': [
             "'self'",
             "'unsafe-inline'",
@@ -63,7 +65,8 @@ export function configureApp(app: NestExpressApplication): void {
   });
 
   // API routes live under /api/v1 (/api/v2 when a breaking version is added).
-  // The home page and the health check stay at / and /health.
+  // The home page, the health check and the JWKS stay at /, /health and
+  // /.well-known.
   app.setGlobalPrefix('api', {
     exclude: [
       { path: '/', method: RequestMethod.GET },
@@ -76,10 +79,16 @@ export function configureApp(app: NestExpressApplication): void {
   // validates the parameters declared with a schema, e.g. @Body({ schema })
   app.useGlobalPipes(new StandardSchemaValidationPipe());
 
+  // home page (views/index.hbs)
   app.setBaseViewsDir(join(import.meta.dirname, '..', 'views'));
   app.setViewEngine('hbs');
 
   if (config.get('SWAGGER', { infer: true })) {
+    // name and version come from package.json
+    const { name, version } = JSON.parse(
+      readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8'),
+    ) as { name: string; version: string };
+
     const options = new DocumentBuilder()
       .addBearerAuth({
         type: 'http',
@@ -88,9 +97,8 @@ export function configureApp(app: NestExpressApplication): void {
         description:
           'Cole apenas o access_token retornado pelo login, sem a palavra "Bearer" e sem aspas.',
       })
-      .setTitle('Nest Base Project')
-      .setDescription('Projeto base Node.Js - NestJs')
-      .setVersion('1.0')
+      .setTitle(name)
+      .setVersion(version)
       .build();
 
     SwaggerModule.setup(

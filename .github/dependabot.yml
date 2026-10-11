@@ -10,11 +10,25 @@ updates:
       dev-dependencies:
         dependency-type: development
         update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 is not supported yet by @nestjs/swagger and
+      # typescript-eslint; review when they add support
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      # follows the Node.js major version used to run the app (26, see .nvmrc
+      # and the Dockerfiles); update together with the runtime
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: docker
     directory: /docker
     schedule:
       interval: weekly
+    ignore:
+      # stays on Node.js 26; a new major is a deliberate migration (update
+      # .nvmrc, engines and @types/node together)
+      - dependency-name: node
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
