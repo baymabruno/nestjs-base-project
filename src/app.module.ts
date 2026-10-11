@@ -21,6 +21,6 @@ import { UsersModule } from './users/users.module';
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(ApiRequestLogger).forRoutes('*');
+    consumer.apply(ApiRequestLogger).forRoutes('{*splat}');
   }
 }

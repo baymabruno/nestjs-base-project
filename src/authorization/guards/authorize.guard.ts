@@ -5,16 +5,16 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import * as jwt from 'jsonwebtoken';
-import { rolesConstants } from 'src/users/constants/user.constants';
-import { UsersService } from 'src/users/users.service';
-import { jwtConstants } from '../constants/authorization.constants';
+import { JwtService } from '@nestjs/jwt';
+import { rolesConstants } from '../../users/constants/user.constants';
+import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class AuthorizeGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private usersService: UsersService,
+    private jwtService: JwtService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -53,16 +53,16 @@ export class AuthorizeGuard implements CanActivate {
     }
     const token = parts[1];
 
+    let decryptedToken: any;
     try {
-      jwt.verify(token, jwtConstants.secret);
-    } catch (error) {
+      decryptedToken = await this.jwtService.verifyAsync(token);
+    } catch {
       throw new UnauthorizedException('Authorization error', {
         cause: new Error(),
         description: 'unauthorized',
       });
     }
 
-    const decryptedToken: any = jwt.decode(token);
     const user: any = await this.usersService.findOne(decryptedToken.username);
 
     // Admin and support accounts bypass id verification
