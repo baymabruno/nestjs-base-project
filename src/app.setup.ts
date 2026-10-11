@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { readFileSync } from 'fs';
 import helmet from 'helmet';
 import { join } from 'path';
 import { Env } from './config/env.validation.js';
@@ -80,6 +81,11 @@ export function configureApp(app: NestExpressApplication): void {
   app.setViewEngine('hbs');
 
   if (config.get('SWAGGER', { infer: true })) {
+    // name and version come from package.json
+    const { name, version } = JSON.parse(
+      readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8'),
+    ) as { name: string; version: string };
+
     const options = new DocumentBuilder()
       .addBearerAuth({
         type: 'http',
@@ -88,9 +94,8 @@ export function configureApp(app: NestExpressApplication): void {
         description:
           'Cole apenas o access_token retornado pelo login, sem a palavra "Bearer" e sem aspas.',
       })
-      .setTitle('Nest Base Project')
-      .setDescription('Projeto base Node.Js - NestJs')
-      .setVersion('1.0')
+      .setTitle(name)
+      .setVersion(version)
       .build();
 
     SwaggerModule.setup(

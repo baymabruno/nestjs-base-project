@@ -2,6 +2,8 @@ import { JwtService } from '@nestjs/jwt';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, TestingModule } from '@nestjs/testing';
 import { createPublicKey } from 'crypto';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
 import { configureApp } from './../src/app.setup.js';
@@ -176,6 +178,15 @@ describe('AppController (e2e)', () => {
       ]);
     });
 
+    it('uses the name and version of package.json', async () => {
+      const { body } = await request(app.getHttpServer()).get('/doc-json');
+      const { name, version } = JSON.parse(
+        readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8'),
+      );
+
+      expect(body.info).toMatchObject({ title: name, version });
+    });
+
     it('documents the request and response schemas', async () => {
       const { body } = await request(app.getHttpServer()).get('/doc-json');
 
@@ -244,8 +255,8 @@ describe('AppController (e2e)', () => {
       const payload = new JwtService().verify(tokens.access_token, {
         publicKey,
         algorithms: [jwk.alg],
-        issuer: 'nestjs-base-project',
-        audience: 'nestjs-base-project',
+        issuer: 'e2e-issuer',
+        audience: 'e2e-audience',
       });
 
       expect(jwk).toMatchObject({ kty: 'RSA', alg: 'RS256', use: 'sig' });
@@ -286,12 +297,29 @@ describe('AppController (e2e)', () => {
       await login('bayma', 'wrong', '203.0.113.20').expect(401);
     });
 
-    it('limits login attempts per username, from any IP', async () => {
+    it('blocks a username after 10 failed logins, from any IP', async () => {
       for (let i = 0; i < 10; i++) {
         await login('maria', 'wrong', `198.51.100.${i}`).expect(401);
       }
-      await login('maria', 'wrong', '198.51.100.99').expect(429);
+      // blocked even with the right password
+      await login('maria', 'teste', '198.51.100.99').expect(429);
       await login('bayma', 'wrong', '198.51.100.99').expect(401);
+    });
+
+    it('does not count successful logins', async () => {
+      for (let i = 0; i < 12; i++) {
+        await login('bayma', 'teste', `198.51.100.${i}`).expect(200);
+      }
+    });
+
+    it('clears the failed logins after a successful login', async () => {
+      for (let i = 0; i < 9; i++) {
+        await login('maria', 'wrong', `198.51.100.${i}`).expect(401);
+      }
+      await login('maria', 'teste', '198.51.100.50').expect(200);
+      for (let i = 0; i < 9; i++) {
+        await login('maria', 'wrong', `198.51.100.${100 + i}`).expect(401);
+      }
     });
 
     it('returns the profile of an allowed user', async () => {

@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash, createPublicKey, JsonWebKey } from 'crypto';
+import { createHash, createPublicKey, type webcrypto } from 'crypto';
 import { Env } from '../config/env.validation.js';
 
 export interface Jwks {
-  keys: (JsonWebKey & { kid: string; alg: 'RS256'; use: 'sig' })[];
+  keys: (webcrypto.JsonWebKey & { kid: string; alg: 'RS256'; use: 'sig' })[];
 }
 
 /** RFC 7638 thumbprint: identifies the key, so it can be rotated later */

@@ -9,6 +9,7 @@ import { Role } from '../users/enums/role.enum.js';
 import { UsersService } from '../users/users.service.js';
 import { AuthorizationService } from './authorization.service.js';
 import { jwtModuleOptions } from './jwt-options.js';
+import { LoginAttemptsService } from './login-attempts.service.js';
 
 // real bcrypt, with compare observable by the tests
 vi.mock('bcrypt', async (importOriginal) => {
@@ -37,9 +38,12 @@ const USER = {
 describe('AuthorizationService', () => {
   let service: AuthorizationService;
   const findOne = vi.fn();
+  const loginAttempts = { registerFailure: vi.fn(), reset: vi.fn() };
 
   beforeEach(async () => {
     findOne.mockReset();
+    loginAttempts.registerFailure.mockReset();
+    loginAttempts.reset.mockReset();
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -47,6 +51,7 @@ describe('AuthorizationService', () => {
         { provide: UsersService, useValue: { findOne } },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: config },
+        { provide: LoginAttemptsService, useValue: loginAttempts },
       ],
     }).compile();
 
@@ -73,6 +78,25 @@ describe('AuthorizationService', () => {
       token_use: 'refresh',
       jti: expect.any(String),
     });
+  });
+
+  it('registers a failed login', async () => {
+    findOne.mockResolvedValue(USER);
+
+    await expect(
+      service.login({ username: 'bayma', password: 'wrong' }),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(loginAttempts.registerFailure).toHaveBeenCalledWith('bayma');
+    expect(loginAttempts.reset).not.toHaveBeenCalled();
+  });
+
+  it('clears the failed logins after a successful login', async () => {
+    findOne.mockResolvedValue(USER);
+
+    await service.login({ username: 'bayma', password: 'teste' });
+
+    expect(loginAttempts.reset).toHaveBeenCalledWith('bayma');
+    expect(loginAttempts.registerFailure).not.toHaveBeenCalled();
   });
 
   it('signs the tokens with RS256 and the key id', async () => {

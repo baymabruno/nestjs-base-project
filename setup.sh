@@ -12,6 +12,11 @@
 #   status    show the container and PM2 status
 #
 # The environment defaults to "dev".
+#
+# Usage: ./setup.sh rename <new-name>
+#
+#   rename    renames the project (package, containers, images, JWT issuer...)
+#             to start a new project from this base
 
 set -euo pipefail
 
@@ -38,9 +43,64 @@ fail() {
 }
 
 usage() {
-  sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '3,19p' "$0" | sed 's/^# \{0,1\}//'
   exit 1
 }
+
+# ---- rename ----
+
+# Replaces the current project name (package.json "name") in every project
+# file, so a new project can start from this base
+rename_project() {
+  local new="$1" current files file tmp mode
+
+  [[ "$new" =~ ^[a-z][a-z0-9-]*[a-z0-9]$ ]] ||
+    fail "Invalid name \"$new\": use lowercase letters, numbers and hyphens (e.g. orders-service)"
+
+  current="$(sed -n 's/^  "name": "\(.*\)",$/\1/p' package.json | head -n 1)"
+  [ -n "$current" ] || fail "Could not read the current name from package.json"
+  [ "$new" != "$current" ] || fail "The project is already named \"$new\""
+
+  if command -v docker >/dev/null 2>&1 &&
+    docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$current"; then
+    fail "The container \"$current\" is running. Stop it first: $SETUP_CMD stop"
+  fi
+
+  info "Renaming \"$current\" to \"$new\""
+
+  # find + grep instead of "grep -r --exclude-dir", which the busybox grep of
+  # the setup container does not support
+  files="$(find . \( -path ./node_modules -o -path ./.git -o -path ./dist \
+    -o -path ./coverage -o -path ./logs \) -prune \
+    -o -type f -exec grep -lF -- "$current" {} + || true)"
+  [ -n "$files" ] || fail "No file contains the name \"$current\""
+
+  while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    # writes a new file instead of editing in place: this script is one of them
+    mode="$(stat -c '%a' "$file" 2>/dev/null || stat -f '%Lp' "$file")"
+    tmp="$(mktemp)"
+    sed "s/$current/$new/g" "$file" >"$tmp"
+    chmod "$mode" "$tmp"
+    mv "$tmp" "$file"
+    fix_ownership "$file"
+    echo "  ${file#./}"
+  done <<<"$files"
+
+  success "Project renamed to \"$new\""
+  echo
+  echo "  Review the repository URL and the author in package.json, and the home"
+  echo "  page (views/index.hbs). Tokens issued with the old name are no longer"
+  echo "  valid (JWT_ISSUER and JWT_AUDIENCE changed)."
+  echo
+}
+
+if [ "$COMMAND" = "rename" ]; then
+  [ -n "${2:-}" ] || usage
+  # defined below; the rename does not depend on the environment
+  RENAME_TO="$2"
+  ENVIRONMENT="dev"
+fi
 
 case "$ENVIRONMENT" in
   dev) COMPOSE_FILE="docker-compose.dev.yml" ;;
@@ -247,6 +307,7 @@ start() {
 }
 
 case "$COMMAND" in
+  rename) rename_project "$RENAME_TO" ;;
   install) install ;;
   start) start ;;
   stop) compose down ;;

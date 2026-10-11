@@ -8,6 +8,7 @@ import { User } from '../users/interfaces/user.interface.js';
 import { UsersService } from '../users/users.service.js';
 import type { LoginResponse, UserLogin } from './schemas/auth.schemas.js';
 import { JwtPayload } from './interfaces/jwt-payload.interface.js';
+import { LoginAttemptsService } from './login-attempts.service.js';
 
 // Compared when the user does not exist, so the response takes the same time
 // as a wrong password and does not reveal which usernames exist
@@ -19,14 +20,22 @@ export class AuthorizationService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private config: ConfigService<Env, true>,
+    private loginAttempts: LoginAttemptsService,
   ) {}
 
   async login(credentials: UserLogin): Promise<LoginResponse> {
-    const user = await this.validateUser(
-      credentials.username,
-      credentials.password,
-    );
+    let user: Omit<User, 'password'>;
+    try {
+      user = await this.validateUser(
+        credentials.username,
+        credentials.password,
+      );
+    } catch (error) {
+      this.loginAttempts.registerFailure(credentials.username);
+      throw error;
+    }
 
+    this.loginAttempts.reset(credentials.username);
     return this.issueTokens(user);
   }
 

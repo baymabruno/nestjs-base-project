@@ -33,6 +33,24 @@ Este documento explica o sistema. A instalação e a operação de cada ambiente
 - [Desenvolvimento](docs/DESENVOLVIMENTO.md)
 - [Produção](docs/PRODUCAO.md)
 
+## Criando um novo projeto a partir desta base
+
+1. Crie o repositório do novo projeto com o conteúdo desta base (no GitHub, marque este repositório como *template* e use **Use this template**, ou copie os arquivos para o novo repositório).
+2. Renomeie o projeto. O comando troca o nome em todos os arquivos: `package.json`, containers e imagens Docker, emissor e público do JWT, serviço de observabilidade, Dev Container e documentação:
+
+```bash
+./setup.sh rename nome-do-projeto
+```
+
+3. Revise o que é específico desta base:
+   - `package.json`: `description`, `author`, `version` e a URL do repositório;
+   - `views/index.hbs`: a página inicial;
+   - `src/app.controller.ts`: as rotas de exemplo `/api/v1/status` e `/api/v1/axios`, que podem ser removidas;
+   - `src/users/users.service.ts`: os usuários de demonstração, a serem trocados por uma persistência (veja [Persistência de usuários](#persistência-de-usuários)).
+4. Siga o [guia do ambiente](#documentação-dos-ambientes) para subir o projeto. A instalação gera um `.env` com chaves próprias para o novo projeto.
+
+O nome precisa ter apenas letras minúsculas, números e hífens (por exemplo, `pedidos-service`). Pare o ambiente antes de renomear, porque os nomes dos containers mudam.
+
 ## Visão geral
 
 ### Tecnologias
@@ -41,7 +59,7 @@ Este documento explica o sistema. A instalação e a operação de cada ambiente
 |---|---|
 | Framework | NestJS 12 com Express 5, em ESM |
 | Linguagem | TypeScript 6 (modo strict) |
-| Execução | Node.js 24, com PM2 dentro do Docker |
+| Execução | Node.js 26, com PM2 dentro do Docker |
 | Autenticação | Passport + JWT RS256, com refresh token e JWKS |
 | Validação | Zod (Standard Schema), também usado para gerar o Swagger |
 | Documentação da API | Swagger (OpenAPI) |
@@ -126,7 +144,12 @@ Os tokens são assinados com a chave privada (`JWT_PRIVATE_KEY`), que só este s
 3. Quando a API responde `401` porque o access token expirou, o cliente envia o refresh token para `POST /api/v1/auth/refresh`, recebe um novo par de tokens e repete a requisição.
 4. Se o refresh também for recusado, a sessão expirou e o usuário precisa fazer login de novo.
 
-A API responde `401` quando o token falta, é inválido ou expirou; `403` quando o usuário não tem a role exigida pela rota; e `429` quando o limite de tentativas de login é atingido (5 por minuto por IP e 10 a cada 15 minutos por usuário).
+A API responde `401` quando o token falta, é inválido ou expirou; `403` quando o usuário não tem a role exigida pela rota; e `429` quando um limite de login é atingido.
+
+O login tem dois limites:
+
+- **Por IP:** 5 tentativas por minuto.
+- **Por usuário:** depois de 10 senhas erradas, vindas de qualquer IP, o usuário fica bloqueado por até 15 minutos (contados a partir da primeira falha). Só as falhas contam, e um login correto zera a contagem. Assim, quem faz login com frequência não é bloqueado, e ninguém consegue bloquear a conta de outra pessoa apenas tentando adivinhar a senha dela.
 
 No navegador, evite guardar o refresh token no `localStorage`, porque qualquer script injetado na página (XSS) consegue lê-lo.
 
@@ -145,7 +168,7 @@ As roles não vão dentro do token: este serviço as consulta a cada requisiçã
 ### Limitações
 
 - O refresh token não fica armazenado no servidor. Por isso funciona com várias instâncias, mas não pode ser revogado antes de expirar: não há logout no servidor. Para permitir logout ou revogação, é preciso guardar os tokens em um armazenamento compartilhado (Redis ou banco de dados).
-- Os limites de tentativas de login ficam em memória, por processo. Com várias instâncias, cada uma conta separadamente.
+- Os limites de login ficam em memória, por processo. Com várias instâncias, cada uma conta separadamente.
 
 ### Persistência de usuários
 
@@ -247,6 +270,11 @@ A cada push na `main` e em cada pull request, o GitHub Actions (`.github/workflo
 5. Nos pushes na `main`, publicação da imagem no GitHub Container Registry.
 
 O Dependabot (`.github/dependabot.yml`) abre pull requests semanais com atualizações das dependências npm, das imagens Docker e das GitHub Actions.
+
+Ele não propõe as atualizações de versão maior que dependem de uma decisão:
+
+- **TypeScript 7:** ainda não é suportado pelo `@nestjs/swagger` e pelo `typescript-eslint`.
+- **Node.js e `@types/node`:** o projeto usa o Node.js 26 (LTS a partir de 28/10/2026, com suporte até abril de 2029). Para migrar para uma nova versão maior, atualize juntos o `.nvmrc`, os Dockerfiles (`FROM node:...`), o `engines` e o `@types/node` do `package.json`.
 
 ## Contato
 

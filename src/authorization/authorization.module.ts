@@ -8,6 +8,7 @@ import { AuthorizationService } from './authorization.service.js';
 import { JwksController } from './jwks.controller.js';
 import { JwksService } from './jwks.service.js';
 import { jwtModuleOptions } from './jwt-options.js';
+import { LoginAttemptsService } from './login-attempts.service.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 
 @Module({
@@ -19,7 +20,12 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
     }),
     UsersModule,
   ],
-  providers: [AuthorizationService, JwtStrategy, JwksService],
+  providers: [
+    AuthorizationService,
+    JwtStrategy,
+    JwksService,
+    LoginAttemptsService,
+  ],
   exports: [AuthorizationService],
   controllers: [AuthorizationController, JwksController],
 })

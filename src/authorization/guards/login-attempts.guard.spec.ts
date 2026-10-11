@@ -1,10 +1,7 @@
 import { ExecutionContext } from '@nestjs/common';
-import { ThrottlerException, ThrottlerStorage } from '@nestjs/throttler';
-import {
-  LOGIN_ATTEMPTS_PER_USER,
-  LOGIN_ATTEMPTS_WINDOW_MS,
-  LoginAttemptsGuard,
-} from './login-attempts.guard.js';
+import { ThrottlerException } from '@nestjs/throttler';
+import { LoginAttemptsService } from '../login-attempts.service.js';
+import { LoginAttemptsGuard } from './login-attempts.guard.js';
 
 const contextWithBody = (body: unknown) =>
   ({
@@ -12,43 +9,36 @@ const contextWithBody = (body: unknown) =>
   }) as unknown as ExecutionContext;
 
 describe('LoginAttemptsGuard', () => {
-  const increment = vi.fn();
-  const guard = new LoginAttemptsGuard({ increment } as ThrottlerStorage);
+  const isBlocked = vi.fn();
+  const guard = new LoginAttemptsGuard({
+    isBlocked,
+  } as unknown as LoginAttemptsService);
 
   beforeEach(() => {
-    increment.mockReset();
-    increment.mockResolvedValue({ isBlocked: false });
+    isBlocked.mockReset();
+    isBlocked.mockReturnValue(false);
   });
 
-  it('counts the attempt by the normalized username', async () => {
-    await expect(
-      guard.canActivate(contextWithBody({ username: '  Bayma ' })),
-    ).resolves.toBe(true);
-
-    expect(increment).toHaveBeenCalledWith(
-      'login:bayma',
-      LOGIN_ATTEMPTS_WINDOW_MS,
-      LOGIN_ATTEMPTS_PER_USER,
-      LOGIN_ATTEMPTS_WINDOW_MS,
-      'login-user',
+  it('allows a username that is not blocked', () => {
+    expect(guard.canActivate(contextWithBody({ username: 'bayma' }))).toBe(
+      true,
     );
+    expect(isBlocked).toHaveBeenCalledWith('bayma');
   });
 
-  it('rejects the attempt when the username is blocked', async () => {
-    increment.mockResolvedValue({ isBlocked: true });
+  it('rejects a blocked username with 429', () => {
+    isBlocked.mockReturnValue(true);
 
-    await expect(
+    expect(() =>
       guard.canActivate(contextWithBody({ username: 'bayma' })),
-    ).rejects.toThrow(ThrottlerException);
+    ).toThrow(ThrottlerException);
   });
 
   it.each([undefined, {}, { username: 123 }])(
     'leaves an invalid body to the validation (%j)',
-    async (body) => {
-      await expect(guard.canActivate(contextWithBody(body))).resolves.toBe(
-        true,
-      );
-      expect(increment).not.toHaveBeenCalled();
+    (body) => {
+      expect(guard.canActivate(contextWithBody(body))).toBe(true);
+      expect(isBlocked).not.toHaveBeenCalled();
     },
   );
 });
