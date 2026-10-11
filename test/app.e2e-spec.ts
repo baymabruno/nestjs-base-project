@@ -47,9 +47,12 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer())
       .get('/api/v1/status')
       .expect('x-content-type-options', 'nosniff')
-      .expect((res) =>
-        expect(res.headers['content-security-policy']).toBeDefined(),
-      );
+      .expect((res) => {
+        const csp = res.headers['content-security-policy'];
+        expect(csp).toBeDefined();
+        // would make the browser load the Swagger UI files over https
+        expect(csp).not.toContain('upgrade-insecure-requests');
+      });
   });
 
   it('generates a request id', () => {
@@ -102,6 +105,86 @@ describe('AppController (e2e)', () => {
       .expect((res) => expect(res.body.status).toBe('ok'));
   });
 
+  it('answers malformed JSON with 400 in the standard format', () => {
+    return request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .set('Content-Type', 'application/json')
+      .send('{"username":')
+      .expect(400)
+      .expect((res) =>
+        expect(res.body).toMatchObject({
+          statusCode: 400,
+          path: '/api/v1/auth/login',
+          requestId: expect.any(String),
+        }),
+      );
+  });
+
+  it('allows cross-origin requests and exposes the request id', () => {
+    return request(app.getHttpServer())
+      .options('/api/v1/auth/profile')
+      .set('Origin', 'https://app.example.com')
+      .set('Access-Control-Request-Method', 'GET')
+      .set('Access-Control-Request-Headers', 'authorization,x-request-id')
+      .expect(204)
+      .expect((res) => {
+        expect(res.headers['access-control-allow-headers']).toMatch(
+          /authorization/i,
+        );
+        expect(res.headers['access-control-allow-headers']).toMatch(
+          /x-request-id/i,
+        );
+      });
+  });
+
+  describe('Swagger', () => {
+    it('serves the documentation page', () => {
+      return request(app.getHttpServer())
+        .get('/doc')
+        .expect(200)
+        .expect('content-type', /html/);
+    });
+
+    it('documents the versioned routes', async () => {
+      const { body } = await request(app.getHttpServer())
+        .get('/doc-json')
+        .expect(200);
+
+      expect(Object.keys(body.paths)).toEqual(
+        expect.arrayContaining([
+          '/api/v1/status',
+          '/api/v1/auth/login',
+          '/api/v1/auth/refresh',
+          '/api/v1/auth/profile',
+          '/.well-known/jwks.json',
+          '/health',
+        ]),
+      );
+    });
+
+    it('documents the bearer authentication of the protected routes', async () => {
+      const { body } = await request(app.getHttpServer()).get('/doc-json');
+
+      expect(body.components.securitySchemes.bearer).toMatchObject({
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: expect.stringContaining('access_token'),
+      });
+      expect(body.paths['/api/v1/auth/profile'].get.security).toEqual([
+        { bearer: [] },
+      ]);
+    });
+
+    it('documents the request and response schemas', async () => {
+      const { body } = await request(app.getHttpServer()).get('/doc-json');
+
+      expect(Object.keys(body.components.schemas)).toEqual(
+        expect.arrayContaining(['UserLogin', 'LoginResponse', 'UserLogged']),
+      );
+    });
+  });
+
   describe('authorization', () => {
     it('returns access and refresh tokens for valid credentials', async () => {
       const res = await login('bayma').expect(200);
@@ -149,7 +232,8 @@ describe('AppController (e2e)', () => {
       const { body: tokens } = await login('bayma');
       const { body: jwks } = await request(app.getHttpServer())
         .get('/.well-known/jwks.json')
-        .expect(200);
+        .expect(200)
+        .expect('cache-control', 'public, max-age=3600');
 
       // what another service does to validate a token
       const [jwk] = jwks.keys;

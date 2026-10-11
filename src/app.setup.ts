@@ -9,6 +9,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { join } from 'path';
 import { Env } from './config/env.validation.js';
+import { ApiRequestLogger } from './middleware/apiDataLogger.middleware.js';
+import { RequestIdMiddleware } from './middleware/requestId.middleware.js';
 
 /**
  * Shared application setup, used by main.ts and the e2e tests so both run
@@ -16,6 +18,14 @@ import { Env } from './config/env.validation.js';
  */
 export function configureApp(app: NestExpressApplication): void {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
+
+  // First middlewares, before helmet and the body parser: every request gets
+  // an id and an access log, including the ones rejected before reaching
+  // Nest (e.g. malformed JSON)
+  const requestId = new RequestIdMiddleware();
+  const requestLogger = new ApiRequestLogger();
+  app.use(requestId.use.bind(requestId));
+  app.use(requestLogger.use.bind(requestLogger));
 
   // Needed behind a reverse proxy / load balancer, so req.ip (used by the
   // rate limit and the logs) is the client IP and not the proxy IP
@@ -32,6 +42,9 @@ export function configureApp(app: NestExpressApplication): void {
           ],
           'font-src': ["'self'", 'https://fonts.gstatic.com', 'data:'],
           'img-src': ["'self'", 'data:', 'https:'],
+          // the browser would request the page assets (e.g. the Swagger UI
+          // files) over https, breaking the page when it is served over http
+          'upgrade-insecure-requests': null,
         },
       },
     }),
@@ -68,14 +81,24 @@ export function configureApp(app: NestExpressApplication): void {
 
   if (config.get('SWAGGER', { infer: true })) {
     const options = new DocumentBuilder()
-      .addBearerAuth()
+      .addBearerAuth({
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description:
+          'Cole apenas o access_token retornado pelo login, sem a palavra "Bearer" e sem aspas.',
+      })
       .setTitle('Nest Base Project')
       .setDescription('Projeto base Node.Js - NestJs')
       .setVersion('1.0')
       .build();
 
-    SwaggerModule.setup('/doc', app, () =>
-      SwaggerModule.createDocument(app, options),
+    SwaggerModule.setup(
+      '/doc',
+      app,
+      () => SwaggerModule.createDocument(app, options),
+      // keeps the token informed in "Authorize" after reloading the page
+      { swaggerOptions: { persistAuthorization: true } },
     );
   }
 

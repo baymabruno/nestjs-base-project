@@ -1,5 +1,5 @@
 import { HttpModule } from '@nestjs/axios';
-import { MiddlewareConsumer, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -10,8 +10,6 @@ import { AuthModule } from './authorization/authorization.module.js';
 import { Env, envSchema } from './config/env.validation.js';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter.js';
 import { HealthModule } from './health/health.module.js';
-import { ApiRequestLogger } from './middleware/apiDataLogger.middleware.js';
-import { RequestIdMiddleware } from './middleware/requestId.middleware.js';
 import { ObserveModule, isObserveEnabled } from './observe.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -60,8 +58,4 @@ import { UsersModule } from './users/users.module.js';
     },
   ],
 })
-export class AppModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestIdMiddleware, ApiRequestLogger).forRoutes('{*splat}');
-  }
-}
+export class AppModule {}
