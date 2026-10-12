@@ -282,3 +282,73 @@ export type HeroMatchupsQuery = z.infer<typeof heroMatchupsQuerySchema>;
 export type HeroMatchups = z.infer<typeof heroMatchupsSchema>;
 export type HeroItemTimingsQuery = z.infer<typeof heroItemTimingsQuerySchema>;
 export type HeroItemTimings = z.infer<typeof heroItemTimingsSchema>;
+
+// ---- statistics by role (STRATZ) ----
+
+export const rolesQuerySchema = z
+  .strictObject({
+    position: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(5)
+      .optional()
+      .describe(
+        '1 carry, 2 mid, 3 offlane, 4 support, 5 hard support (default: all)',
+      ),
+    bracket: z
+      .enum(['divine', 'immortal'])
+      .optional()
+      .describe('Average rank of the matches (default: both)'),
+    days: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(META_MAX_DAYS)
+      .default(8)
+      .describe('Days with data, up to the latest one'),
+    minMatches: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1000000)
+      .default(100)
+      .describe('Leaves out heroes with fewer matches in the role'),
+  })
+  .meta({ id: 'RolesQuery' });
+
+export const rolesSchema = z
+  .object({
+    available: z
+      .boolean()
+      .describe('False while there is no data (STRATZ_API_TOKEN not set)'),
+    from: z.iso.date().nullable(),
+    to: z.iso.date().nullable().describe('Latest day with data (UTC)'),
+    matches: z.number().describe('Matches in the filters'),
+    heroes: z
+      .array(
+        z.object({
+          id: z.number(),
+          name: z.string(),
+          localizedName: z.string(),
+          matches: z.number(),
+          wins: z.number(),
+          winRate: rate,
+          winRateLow: rate.describe('Lower bound of the 95% Wilson interval'),
+          pickRate: rate.describe(
+            'Share of the matches with the hero in the role',
+          ),
+          score: z
+            .number()
+            .describe(
+              '0 to 100: 70% the percentile of the adjusted win rate and 30% the percentile of the pick rate, among the heroes of the role',
+            ),
+          tier: z.enum(['S', 'A', 'B', 'C', 'D']),
+        }),
+      )
+      .describe('Highest score first'),
+  })
+  .meta({ id: 'Roles' });
+
+export type RolesQuery = z.infer<typeof rolesQuerySchema>;
+export type Roles = z.infer<typeof rolesSchema>;

@@ -7,7 +7,8 @@ import { IngestionService } from './ingestion.service.js';
 
 describe('IngestionScheduler', () => {
   let registry: SchedulerRegistry;
-  let ingestion: Record<string, ReturnType<typeof vi.fn>>;
+  // jobs (mocks) and collectsPositionStats
+  let ingestion: Record<string, any>;
   let scheduler: IngestionScheduler;
 
   beforeEach(() => {
@@ -22,11 +23,14 @@ describe('IngestionScheduler', () => {
       syncGameData: vi.fn().mockResolvedValue(undefined),
       deleteExpiredMatches: vi.fn().mockResolvedValue(4),
       refreshStats: vi.fn().mockResolvedValue(undefined),
+      syncPositionStats: vi.fn().mockResolvedValue(10),
+      collectsPositionStats: true,
     };
     const config = new ConfigService({
       PRO_MATCHES_INTERVAL_MINUTES: 15,
       PUBLIC_MATCHES_INTERVAL_MINUTES: 5,
       STATS_INTERVAL_MINUTES: 15,
+      STRATZ_INTERVAL_HOURS: 6,
     }) as ConfigService<Env, true>;
     scheduler = new IngestionScheduler(
       ingestion as unknown as IngestionService,
@@ -59,12 +63,35 @@ describe('IngestionScheduler', () => {
       'public-matches',
       'match-details',
       'stats',
+      'stratz',
     ]);
     // first run + one per interval
     expect(ingestion.collectProMatches).toHaveBeenCalledTimes(2);
     expect(ingestion.collectPublicMatches).toHaveBeenCalledTimes(4);
     expect(ingestion.fetchDetails).toHaveBeenCalledTimes(15);
     expect(ingestion.refreshStats).toHaveBeenCalledTimes(2);
+  });
+
+  it('collects the statistics by role when STRATZ is configured', async () => {
+    scheduler.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(6 * 60 * 60 * 1000);
+
+    // first run + one after 6 hours
+    expect(ingestion.syncPositionStats).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not collect the statistics by role without STRATZ', async () => {
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    ingestion.collectsPositionStats = false;
+
+    scheduler.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(registry.getIntervals()).not.toContain('stratz');
+    expect(ingestion.syncPositionStats).not.toHaveBeenCalled();
+    expect(Logger.prototype.warn).toHaveBeenCalledWith(
+      expect.stringContaining('STRATZ_API_TOKEN'),
+    );
   });
 
   it('logs only the details runs that saved matches', async () => {

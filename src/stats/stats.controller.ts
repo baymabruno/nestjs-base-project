@@ -18,6 +18,8 @@ import {
   metaHeroesQuerySchema,
   metaHeroesSchema,
   metaSchema,
+  rolesQuerySchema,
+  rolesSchema,
   type HeroDetails,
   type HeroItemTimings,
   type HeroItemTimingsQuery,
@@ -30,9 +32,12 @@ import {
   type Meta,
   type MetaHeroes,
   type MetaHeroesQuery,
+  type Roles,
+  type RolesQuery,
 } from './schemas/stats.schemas.js';
 import { HeroService } from './hero.service.js';
 import { MetaService } from './meta.service.js';
+import { RolesService } from './roles.service.js';
 import { StatsService } from './stats.service.js';
 
 // public routes: statistics of the current patch
@@ -43,6 +48,7 @@ export class StatsController {
     private readonly stats: StatsService,
     private readonly meta: MetaService,
     private readonly hero: HeroService,
+    private readonly roles: RolesService,
   ) {}
 
   @Get('/meta')
@@ -65,6 +71,18 @@ export class StatsController {
     @Query({ schema: metaHeroesQuerySchema }) query: MetaHeroesQuery,
   ): Promise<MetaHeroes> {
     return this.meta.getHeroes(query);
+  }
+
+  @Get('/meta/roles')
+  @ApiOkResponse({
+    description:
+      'Heroes by role (position 1 to 5) in ranked Divine and Immortal matches (STRATZ), with a score and a tier',
+    standardSchema: rolesSchema,
+  })
+  getRoles(
+    @Query({ schema: rolesQuerySchema }) query: RolesQuery,
+  ): Promise<Roles> {
+    return this.roles.getHeroes(query);
   }
 
   @Get('/heroes')

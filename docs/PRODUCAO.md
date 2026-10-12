@@ -29,6 +29,7 @@ Defina estas variáveis no `.env` do servidor:
   openssl base64 -A -in public.pem
   ```
 - `POSTGRES_PASSWORD` e `DATABASE_URL`: a senha do banco, exclusiva de cada ambiente. O `setup.sh` gera uma senha aleatória ao criar o `.env`. A senha na `DATABASE_URL` precisa ser a mesma de `POSTGRES_PASSWORD`. O banco é criado com essa senha na primeira vez que sobe, então trocá-la depois exige alterar também o usuário no PostgreSQL (`ALTER USER`).
+- `STRATZ_API_TOKEN`: o token da API do STRATZ, gratuito em https://stratz.com/api. Sem ele, a seção de heróis por função da página de meta fica indisponível. Use um token próprio do ambiente de produção.
 - `OPENDOTA_API_KEY`: opcional. Sem chave, a coleta fica limitada a 3.000 requisições por dia (veja [Coleta e estatísticas](../README.md#coleta-e-estatísticas)).
 - `CORS_ORIGINS`: as origens do front-end que podem chamar a API, por exemplo `"https://app.example.com,https://admin.example.com"`. Se ficar vazia, qualquer origem é permitida.
 - `JWT_EXPIRES_IN`: mantenha o access token curto (padrão de 15 minutos); o front-end renova a sessão com o refresh token.

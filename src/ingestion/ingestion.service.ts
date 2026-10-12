@@ -9,6 +9,7 @@ import {
 } from '../opendota/opendota.client.js';
 import { PublicMatch } from '../opendota/opendota.schemas.js';
 import { StatsService } from '../stats/stats.service.js';
+import { PositionStatsService } from '../stratz/position-stats.service.js';
 
 // public matches kept: ranked lobby, All Pick
 const RANKED_LOBBY = 7;
@@ -40,6 +41,7 @@ export class IngestionService {
     private readonly gameData: GameDataService,
     private readonly matches: MatchesService,
     private readonly stats: StatsService,
+    private readonly positionStats: PositionStatsService,
     config: ConfigService<Env, true>,
   ) {
     this.minRankTier = config.get('PUBLIC_MIN_RANK_TIER', { infer: true });
@@ -103,10 +105,23 @@ export class IngestionService {
   }
 
   /** Deletes the matches older than MATCH_RETENTION_DAYS */
-  deleteExpiredMatches(now = new Date()): Promise<number> {
-    return this.matches.deleteStartedBefore(
-      new Date(now.getTime() - this.retentionDays * DAY_MS),
-    );
+  async deleteExpiredMatches(now = new Date()): Promise<number> {
+    const cutoff = new Date(now.getTime() - this.retentionDays * DAY_MS);
+    await this.positionStats.deleteBefore(cutoff);
+    return this.matches.deleteStartedBefore(cutoff);
+  }
+
+  /** Whether the statistics by role (STRATZ) are collected */
+  get collectsPositionStats(): boolean {
+    return this.positionStats.isConfigured;
+  }
+
+  /**
+   * Stores the statistics by role (STRATZ) of the retention period; returns
+   * how many rows were stored
+   */
+  syncPositionStats(): Promise<number> {
+    return this.positionStats.sync(this.retentionDays);
   }
 
   /**

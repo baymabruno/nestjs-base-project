@@ -46,6 +46,19 @@ export class IngestionScheduler implements OnApplicationBootstrap {
       () => this.ingestion.refreshStats(),
     );
 
+    if (this.ingestion.collectsPositionStats) {
+      every(
+        'stratz',
+        this.config.get('STRATZ_INTERVAL_HOURS', { infer: true }) * 60,
+        () => this.syncPositionStats(),
+      );
+      void this.run('stratz', () => this.syncPositionStats());
+    } else {
+      this.logger.warn(
+        'STRATZ_API_TOKEN is not set: the statistics by role are not collected',
+      );
+    }
+
     // first run right away, instead of waiting for the intervals
     void this.run('pro-matches', () => this.collectProMatches())
       .then(() => this.run('public-matches', () => this.collectPublicMatches()))
@@ -90,6 +103,11 @@ export class IngestionScheduler implements OnApplicationBootstrap {
   private async collectPublicMatches() {
     const added = await this.ingestion.collectPublicMatches();
     this.logger.log(`Public matches: ${added} new`);
+  }
+
+  private async syncPositionStats() {
+    const rows = await this.ingestion.syncPositionStats();
+    this.logger.log(`Statistics by role (STRATZ): ${rows} rows`);
   }
 
   private async fetchDetails() {

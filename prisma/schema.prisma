@@ -199,3 +199,20 @@ model HeroItemTimingStat {
   @@id([patchId, source, heroId, itemId, bucket])
   @@map("hero_item_timing_stats")
 }
+
+// heroes by position, rank and day from the STRATZ API (ranked All Pick):
+// the statistics by role of the meta page
+model HeroPositionDailyStat {
+  // UTC day
+  day         DateTime @db.Date
+  // 1 carry, 2 mid, 3 offlane, 4 support, 5 hard support
+  position    Int      @db.SmallInt
+  // tens of the rank tier (7 Divine, 8 Immortal)
+  rankBracket Int      @map("rank_bracket") @db.SmallInt
+  heroId      Int      @map("hero_id") @db.SmallInt
+  matches     Int
+  wins        Int
+
+  @@id([day, position, rankBracket, heroId])
+  @@map("hero_position_daily_stats")
+}

@@ -62,7 +62,7 @@ O nome precisa ter apenas letras minúsculas, números e hífens (por exemplo, `
 |---|---|
 | Framework | NestJS 12 com Express 5, em ESM |
 | Banco de dados | PostgreSQL 18 com Prisma 7 (driver `pg`, migrations versionadas) |
-| Fonte dos dados | API do OpenDota (partidas, heróis, itens e patches) |
+| Fonte dos dados | API do OpenDota (partidas, heróis, itens e patches) e API do STRATZ (heróis por posição) |
 | Coleta | Processo worker separado, com `@nestjs/schedule` |
 | Site | Next.js 16 (React 19) em `web/`, com renderização no servidor |
 | Painéis | Metabase em desenvolvimento (`./setup.sh metabase`) |
@@ -130,6 +130,7 @@ A coleta roda no processo **worker** (`src/worker.ts`), separado da API. A API p
 | Detalhes | a cada minuto | `GET /matches/{id}`: itens finais e ordem de compra de cada jogador; profissionais primeiro, depois as mais recentes |
 | Estatísticas | ao iniciar e a cada `STATS_INTERVAL_MINUTES` | recalcula as tabelas do patch atual |
 | Dados do jogo | diariamente às 5h | heróis, itens e patches |
+| Heróis por função (STRATZ) | ao iniciar e a cada `STRATZ_INTERVAL_HOURS` | uma requisição à API GraphQL do STRATZ com partidas e vitórias de cada herói por dia, posição (1 a 5) e rank (Divine e Immortal), em All Pick ranqueado. Só roda com `STRATZ_API_TOKEN` |
 | Retenção | diariamente às 4h | apaga as partidas com mais de `MATCH_RETENTION_DAYS` dias |
 
 **Cota do OpenDota.** Sem chave de API, o limite é de 60 requisições por minuto e 3.000 por dia, contados por IP. O cliente faz uma requisição por vez, com intervalo de `OPENDOTA_REQUEST_INTERVAL_MS`, e acompanha os cabeçalhos `x-rate-limit-remaining-minute` e `x-rate-limit-remaining-day`. Quando restam 10 requisições ou menos no minuto, ou quando a API recusa uma requisição (429), ele espera um minuto. Assim o worker e o backfill, que dividem o mesmo limite, freiam juntos. A cada minuto, os detalhes usam a cota restante dividida pelos minutos até a meia-noite (UTC), guardando `OPENDOTA_DAILY_RESERVE` requisições para as listas. A cota fica distribuída ao longo do dia, em vez de acabar nas primeiras horas.
@@ -144,6 +145,8 @@ A coleta roda no processo **worker** (`src/worker.ts`), separado da API. A API p
 ```
 
 O comando volta no tempo página por página (`less_than_match_id`). As partidas profissionais vão da mais recente até o início do período, o que custa poucas requisições, porque cada página cobre alguns dias. As públicas partem da mais antiga já gravada, então uma nova execução continua de onde a anterior parou. Elas são numerosas: cada página de 100 cobre cerca de 2 minutos de jogo, e um dia passa de 800 páginas. Por isso, cada execução usa no máximo metade das requisições que restam no dia, deixando o resto para o worker buscar os detalhes, e avisa quando o período ficou incompleto. Os detalhes (itens) das partidas novas são buscados pelo worker, dentro da cota diária.
+
+**Posições pelo STRATZ.** O OpenDota só informa a posição de cada jogador nas partidas processadas, algumas centenas por dia. O STRATZ calcula a posição de todas as partidas ranqueadas e entrega os totais por herói, posição e rank, cerca de 44 mil partidas Divine e Immortal por dia, numa única requisição. É a mesma fonte do Dota2ProTracker. O token é gratuito (https://stratz.com/api, com login pela Steam); sem ele, a seção por função fica indisponível e o resto funciona normalmente.
 
 **Facetas.** No patch 7.41, todas as facetas estão descontinuadas no OpenDota e as partidas não informam a faceta escolhida, então elas não são coletadas.
 
@@ -185,6 +188,7 @@ As rotas da API ficam sob o prefixo `/api/v1`. A página inicial, o health check
 | `POST` | `/api/v1/auth/refresh` | Troca um refresh token por um novo par de tokens |
 | `GET` | `/api/v1/auth/profile` | Dados do usuário logado (requer a role `admin`) |
 | `GET` | `/api/v1/meta` | Patch das estatísticas, quando foram calculadas e quantas partidas incluem |
+| `GET` | `/api/v1/meta/roles` | Heróis por função (dados do STRATZ), com nota de 0 a 100 e tier. Filtros: `position` (1 a 5), `bracket`, `days` e `minMatches` (padrão 100) |
 | `GET` | `/api/v1/meta/heroes` | Página de meta: heróis num período (`days`, de 1 a 30), com win rate ajustada, pick rate, win rate por duração e tendência diária. Filtros: `source`, `bracket` (`divine` ou `immortal`) e `minMatches` |
 | `GET` | `/api/v1/heroes` | Taxa de vitória e de escolha de cada herói. Filtros: `source` (`pro` ou `public`) e `minMatches` |
 | `GET` | `/api/v1/heroes/:heroId/matchups` | Página do herói: win rate contra cada inimigo e com cada aliado, com o intervalo de Wilson e a diferença para a win rate geral. Filtros: `source` e `minMatches` |
@@ -329,6 +333,7 @@ A referência completa, com o padrão, a descrição de cada variável e como ap
 | Observabilidade | `OBSERVE_APP_KEY`, `OBSERVE_APP_SECRET`, `OBSERVE_SERVICE_ID` |
 | API do OpenDota | `OPENDOTA_API_URL`, `OPENDOTA_API_KEY`, `OPENDOTA_REQUEST_INTERVAL_MS`, `OPENDOTA_DAILY_RESERVE` |
 | Coleta de partidas | `MATCH_RETENTION_DAYS`, `PRO_MATCHES_INTERVAL_MINUTES`, `PUBLIC_MATCHES_INTERVAL_MINUTES`, `PUBLIC_MIN_RANK_TIER`, `DETAILS_PER_MINUTE`, `STATS_INTERVAL_MINUTES` |
+| API do STRATZ | `STRATZ_API_URL`, `STRATZ_API_TOKEN`, `STRATZ_INTERVAL_HOURS` |
 | Banco de dados | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`, `POSTGRES_PORT`, `POSTGRES_CPU_LIMIT`, `POSTGRES_MEMORY_LIMIT` |
 | Metabase | `METABASE_PORT`, `METABASE_ADMIN_EMAIL`, `METABASE_ADMIN_PASSWORD`, `METABASE_READER_PASSWORD` |
 

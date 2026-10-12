@@ -70,6 +70,15 @@ export const envSchema = z
       .int()
       .nonnegative()
       .default(1100),
+    // STRATZ API (https://stratz.com/api): hero statistics by position
+    STRATZ_API_URL: z.url().default('https://api.stratz.com/graphql'),
+    // optional: without it the statistics by role are not collected
+    STRATZ_API_TOKEN: z
+      .string()
+      .optional()
+      .transform((value) => value || undefined),
+    // hours between the requests for the statistics by role
+    STRATZ_INTERVAL_HOURS: z.coerce.number().int().positive().default(6),
     // match collection (worker): days of matches kept in the database
     MATCH_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
     // minutes between the requests for the latest pro and public matches

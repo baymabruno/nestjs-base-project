@@ -5,6 +5,7 @@ import {
 } from '../../test/support/database.js';
 import {
   fakeOpenDota,
+  fakeStratz,
   matchDetails,
   NOW,
   proMatch,
@@ -20,6 +21,7 @@ import {
 } from '../opendota/opendota.client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StatsService } from '../stats/stats.service.js';
+import { PositionStatsService } from '../stratz/position-stats.service.js';
 import { IngestionService } from './ingestion.service.js';
 
 const settings = {
@@ -55,6 +57,19 @@ describe('IngestionService', () => {
       gameData,
       new MatchesService(prisma, gameData),
       new StatsService(prisma),
+      new PositionStatsService(
+        prisma,
+        fakeStratz([
+          {
+            day: new Date('2026-10-10T00:00:00Z'),
+            position: 1,
+            rankBracket: 7,
+            heroId: 1,
+            matches: 10,
+            wins: 6,
+          },
+        ]),
+      ),
       new ConfigService(settings) as ConfigService<Env, true>,
     );
     return { service, gameData };
@@ -170,6 +185,23 @@ describe('IngestionService', () => {
     await service.refreshStats();
 
     expect(await prisma.heroStat.count({ where: { patchId: 60 } })).toBe(10);
+  });
+
+  it('stores the statistics by role (STRATZ)', async () => {
+    const { service } = createService();
+
+    expect(service.collectsPositionStats).toBe(true);
+    expect(await service.syncPositionStats()).toBe(1);
+  });
+
+  it('deletes the statistics by role older than the retention', async () => {
+    const { service } = createService();
+    await service.syncPositionStats();
+
+    // 2026-10-10 is more than 30 days before 2026-11-15
+    await service.deleteExpiredMatches(new Date('2026-11-15T00:00:00Z'));
+
+    expect(await prisma.heroPositionDailyStat.count()).toBe(0);
   });
 
   it('syncs the game data', async () => {

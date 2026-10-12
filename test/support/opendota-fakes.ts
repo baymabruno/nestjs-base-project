@@ -1,4 +1,5 @@
 import { OpenDotaClient } from '../../src/opendota/opendota.client.js';
+import { StratzClient } from '../../src/stratz/stratz.client.js';
 import {
   MatchDetails,
   ProMatch,
@@ -106,3 +107,13 @@ export const matchDetails = (
       : null,
   })),
 });
+
+/** STRATZ client answering with the given rows */
+export const fakeStratz = (
+  rows: Awaited<ReturnType<StratzClient['getHeroPositionDays']>> = [],
+  configured = true,
+) =>
+  ({
+    isConfigured: configured,
+    getHeroPositionDays: async () => rows,
+  }) as unknown as StratzClient;

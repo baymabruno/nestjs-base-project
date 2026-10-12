@@ -88,6 +88,16 @@ Sem chave de API, o OpenDota permite 60 requisições por minuto e 3.000 por dia
 | `OPENDOTA_REQUEST_INTERVAL_MS` | `1100` | Intervalo mínimo entre duas requisições do mesmo processo, em milissegundos; `1100` fica um pouco abaixo de 60 por minuto. Além disso, o cliente espera um minuto quando a API informa 10 requisições ou menos restantes no minuto, ou recusa uma requisição (429) |
 | `OPENDOTA_DAILY_RESERVE` | `150` | Requisições do dia guardadas para as listas de partidas. A busca de detalhes para quando as requisições restantes chegam a esse valor, e o backfill usa no máximo metade do que sobra acima dele |
 
+## API do STRATZ
+
+Fonte dos heróis por função (posições 1 a 5) da página de meta. Veja [Coleta e estatísticas](../README.md#coleta-e-estatísticas) no README.
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `STRATZ_API_URL` | `https://api.stratz.com/graphql` | Endereço da API GraphQL |
+| `STRATZ_API_TOKEN` | vazio | Token da API, gratuito em https://stratz.com/api (login pela Steam). Sem ele, os dados por função não são coletados e a página de meta os mostra como indisponíveis. É um segredo: fica só no `.env` |
+| `STRATZ_INTERVAL_HOURS` | `6` | Horas entre as consultas. Cada consulta é uma única requisição, com os últimos `MATCH_RETENTION_DAYS` dias |
+
 ## Coleta de partidas (worker)
 
 | Variável | Padrão | Descrição |

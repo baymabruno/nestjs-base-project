@@ -111,6 +111,21 @@ describe('Stats (e2e)', () => {
       .expect(404);
   });
 
+  it('/api/v1/meta/roles (GET) without data', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/meta/roles?position=1')
+      .expect(200)
+      .expect((res) =>
+        expect(res.body).toMatchObject({ available: false, heroes: [] }),
+      );
+  });
+
+  it('rejects an invalid position', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/meta/roles?position=6')
+      .expect(400);
+  });
+
   it('rejects invalid filters', () => {
     return request(app.getHttpServer())
       .get('/api/v1/heroes?source=ranked')
