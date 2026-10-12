@@ -63,6 +63,7 @@ O nome precisa ter apenas letras minúsculas, números e hífens (por exemplo, `
 | Banco de dados | PostgreSQL 18 com Prisma 7 (driver `pg`, migrations versionadas) |
 | Fonte dos dados | API do OpenDota (partidas, heróis, itens e patches) |
 | Coleta | Processo worker separado, com `@nestjs/schedule` |
+| Painéis | Metabase em desenvolvimento (`./setup.sh metabase`) |
 | Linguagem | TypeScript 6 (modo strict) |
 | Execução | Node.js 26, com PM2 dentro do Docker |
 | Autenticação | Passport + JWT RS256, com refresh token e JWKS |

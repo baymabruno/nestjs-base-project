@@ -120,6 +120,7 @@ O `./setup.sh install dev` já faz isso.
 | http://localhost:3000/doc | Swagger (com `SWAGGER="true"`, o padrão em desenvolvimento) |
 | http://localhost:3000/health | Health check |
 | `localhost:9229` | Debugger do Node.js (porta definida em `DEBUG_PORT`) |
+| http://localhost:3001 | Metabase, quando iniciado com `./setup.sh metabase` (porta definida em `METABASE_PORT`) |
 | `localhost:5432` | PostgreSQL, para clientes de banco como DBeaver ou psql (porta definida em `POSTGRES_PORT`; usuário, senha e banco no `.env`) |
 
 A porta da aplicação é a do `PORT` no `.env`. A descrição das variáveis comuns aos ambientes está na seção [Configuração](../README.md#configuração) do README. Variável específica do desenvolvimento:
@@ -128,6 +129,9 @@ A porta da aplicação é a do `PORT` no `.env`. A descrição das variáveis co
 |---|---|
 | `DEBUG_PORT` | Porta do debugger na máquina (padrão `9229`) |
 | `POSTGRES_PORT` | Porta do PostgreSQL na máquina (padrão `5432`) |
+| `METABASE_PORT` | Porta do Metabase na máquina (padrão `3001`) |
+| `METABASE_ADMIN_EMAIL` / `METABASE_ADMIN_PASSWORD` | Login do administrador do Metabase, gerado pelo `./setup.sh metabase` |
+| `METABASE_READER_PASSWORD` | Senha do usuário somente leitura que o Metabase usa no banco, gerada pelo `./setup.sh metabase` |
 
 Em desenvolvimento, o `.env` de exemplo já vem com `SWAGGER="true"` e `LOG_LEVEL="debug"`, e os usuários de demonstração ficam disponíveis (veja [Usuários de demonstração e senhas](#usuários-de-demonstração-e-senhas)).
 
@@ -306,6 +310,33 @@ docker exec -it dota-metrics-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTG
 ```
 
 Os dados ficam no volume `postgres-data`, que continua existindo depois do `./setup.sh stop`.
+
+## Metabase
+
+O [Metabase](https://www.metabase.com) mostra as estatísticas e o andamento da coleta em painéis, direto do banco. Ele não sobe com os outros comandos, porque usa cerca de 1GB de memória. Para iniciar:
+
+```bash
+./setup.sh metabase
+```
+
+Na primeira vez, o comando:
+
+- gera no `.env` o login do administrador (`METABASE_ADMIN_EMAIL` e `METABASE_ADMIN_PASSWORD`) e a senha do usuário do banco (`METABASE_READER_PASSWORD`);
+- cria no PostgreSQL o banco `metabase` (usuários, perguntas e painéis do próprio Metabase) e o usuário `metabase_reader`, que só tem permissão de leitura, inclusive nas tabelas criadas por migrations futuras;
+- sobe o container, cria o administrador, conecta o Metabase ao banco da aplicação e cria o painel **Dota Metrics** (`docker/metabase-setup.mjs`).
+
+Acesse http://localhost:3001 com o e-mail e a senha do `.env`. O painel tem:
+
+| Pergunta | O que mostra |
+|---|---|
+| Patch atual, partidas no banco, últimas 24 horas e atualização | Resumo da coleta e das estatísticas |
+| Partidas por dia | Volume coletado por dia, profissionais e públicas |
+| Coleta dos detalhes | Partidas aguardando detalhes, com itens finais, com ordem de compra e com falha |
+| Maiores win rates e heróis mais escolhidos | Os 15 primeiros de cada, no patch atual |
+| Heróis do patch atual | Partidas, vitórias, win rate e pick rate de todos os heróis |
+| Itens por herói | Itens a partir de 1000 de ouro, com win rate e minuto médio da compra |
+
+Executar o comando de novo não duplica nada e mantém o que foi alterado no Metabase. Para recriar o painel original, apague o painel **Dota Metrics** no Metabase e execute o comando. O `./setup.sh stop dev` também para o Metabase, e os painéis ficam guardados no banco `metabase`.
 
 ## Testes e qualidade
 

@@ -13,3 +13,4 @@ As mudanças de cada versão do Dota Metrics. O formato segue o [Keep a Changelo
 - Worker de coleta em um processo separado do PM2: listas de partidas, detalhes com a cota distribuída ao longo do dia, estatísticas e retenção de 30 dias.
 - Estatísticas do patch atual e as rotas `GET /api/v1/meta`, `GET /api/v1/heroes` e `GET /api/v1/heroes/:heroId`.
 - Testes de integração com bancos de teste próprios, criados e migrados automaticamente.
+- Metabase no ambiente de desenvolvimento (`./setup.sh metabase`), com um usuário somente leitura no banco e o painel Dota Metrics criado automaticamente.
