@@ -8,13 +8,21 @@ describe("parseFilters", () => {
       bracket: undefined,
       minMatches: 1,
       role: undefined,
+      allRoles: undefined,
+    });
+  });
+
+  it("reads all roles chosen explicitly", () => {
+    expect(parseFilters({ role: "all" })).toMatchObject({
+      role: undefined,
+      allRoles: true,
     });
   });
 
   it("reads the valid values", () => {
     expect(
       parseFilters({ source: "public", bracket: "immortal", min: "100", role: "3" }),
-    ).toEqual({ source: "public", bracket: "immortal", minMatches: 100, role: 3 });
+    ).toMatchObject({ source: "public", bracket: "immortal", minMatches: 100, role: 3 });
   });
 
   it("ignores invalid values", () => {
@@ -39,6 +47,12 @@ describe("filterHref", () => {
     const filters = parseFilters({ source: "public", min: "500" });
     expect(filterHref("/heroes/axe", filters, { role: 1 })).toBe(
       "/heroes/axe?source=public&min=500&role=1",
+    );
+  });
+
+  it("keeps all roles chosen explicitly in the URL", () => {
+    expect(filterHref("/heroes/axe", defaults, { allRoles: true })).toBe(
+      "/heroes/axe?role=all",
     );
   });
 

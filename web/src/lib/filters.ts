@@ -10,8 +10,13 @@ export interface Filters {
   source?: Source;
   bracket?: Bracket;
   minMatches: number;
-  /** selected role (empty: all roles) */
+  /** selected role (empty: all roles, or the default of the page) */
   role?: Position;
+  /**
+   * all roles chosen explicitly (role=all), on pages whose default is a role,
+   * like the hero page (the most played one)
+   */
+  allRoles?: boolean;
 }
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -26,12 +31,14 @@ const oneOf = <T extends string | number>(
 
 /** Reads the filters from the URL, ignoring invalid values */
 export function parseFilters(params: SearchParams): Filters {
-  const role = oneOf(first(params.role), ["1", "2", "3", "4", "5"] as const);
+  const roleParam = first(params.role);
+  const role = oneOf(roleParam, ["1", "2", "3", "4", "5"] as const);
   return {
     source: oneOf<Source>(first(params.source), ["pro", "public"]),
     bracket: oneOf<Bracket>(first(params.bracket), ["divine", "immortal"]),
     minMatches: oneOf(first(params.min), SAMPLE_OPTIONS) ?? DEFAULT_MIN_MATCHES,
     role: role ? (Number(role) as Position) : undefined,
+    allRoles: roleParam === "all" || undefined,
   };
 }
 
@@ -43,6 +50,7 @@ export function filterHref(path: string, filters: Filters, change: Partial<Filte
   if (next.bracket) params.set("bracket", next.bracket);
   if (next.minMatches !== DEFAULT_MIN_MATCHES) params.set("min", String(next.minMatches));
   if (next.role) params.set("role", String(next.role));
+  else if (next.allRoles) params.set("role", "all");
   const query = params.toString();
   return query ? `${path}?${query}` : path;
 }

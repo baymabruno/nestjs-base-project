@@ -24,7 +24,7 @@ function Totals({ totals }: { totals: RoleTotals }) {
 /**
  * Header of the hero page: the hero in every role, like the Dota2ProTracker
  * hero page (STRATZ data, ranked Divine and Immortal matches). Each role is a
- * link that shows the page for that role.
+ * link that shows the page for that role; the most played one is the default.
  */
 export function RolesBar({
   name,
@@ -32,12 +32,15 @@ export function RolesBar({
   roles,
   path,
   filters,
+  selected,
 }: {
   name: string;
   localizedName: string;
   roles: HeroRoles;
   path: string;
   filters: Filters;
+  /** the role shown (empty: all roles) */
+  selected: Position | undefined;
 }) {
   const bracket =
     filters.bracket === "divine"
@@ -46,12 +49,13 @@ export function RolesBar({
         ? "Immortal"
         : "Divine e Immortal";
   const column = (role: Position | undefined, popular: boolean) => {
-    const selected = role === filters.role;
+    const current = role === selected;
     return {
-      href: filterHref(path, filters, { role }),
+      // all roles go in the URL, as the default of the page is a role
+      href: filterHref(path, filters, { role, allRoles: !role || undefined }),
       scroll: false,
-      className: `role-column${popular ? " role-popular" : ""}${selected ? " role-selected" : ""}`,
-      "aria-current": selected ? ("page" as const) : undefined,
+      className: `role-column${popular ? " role-popular" : ""}${current ? " role-selected" : ""}`,
+      "aria-current": current ? ("page" as const) : undefined,
     };
   };
   return (

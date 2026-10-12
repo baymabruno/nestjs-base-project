@@ -428,24 +428,39 @@ function MatchupList({
 export default async function HeroPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const filters = parseFilters(await searchParams);
-  const { source, bracket, minMatches, role } = filters;
+  const { source, bracket, minMatches } = filters;
   const path = `/heroes/${slug}`;
 
   let data;
   try {
     const listed = await findHero(slug);
     if (!listed) notFound();
-    const [meta, items, timings, matchups, abilities, roles, roleItems] =
-      await Promise.all([
-        getMetaHeroes({ source, bracket, minMatches: 1 }),
-        getHeroItems(listed.id, source, minMatches),
-        getHeroItemTimings(listed.id, source, minMatches),
-        getHeroMatchups(listed.id, source, minMatches),
-        getHeroAbilities(listed.id, source, role),
-        getHeroRoles(listed.id, bracket),
-        role ? getHeroRoleItems(listed.id, role, MIN_ITEM_COST) : null,
-      ]);
-    data = { listed, meta, items, timings, matchups, abilities, roles, roleItems };
+    const [meta, items, timings, matchups, roles] = await Promise.all([
+      getMetaHeroes({ source, bracket, minMatches: 1 }),
+      getHeroItems(listed.id, source, minMatches),
+      getHeroItemTimings(listed.id, source, minMatches),
+      getHeroMatchups(listed.id, source, minMatches),
+      getHeroRoles(listed.id, bracket),
+    ]);
+    // the role in the URL; without one, the most played role of the hero
+    const role = filters.allRoles
+      ? undefined
+      : (filters.role ?? roles.mostPlayed ?? undefined);
+    const [abilities, roleItems] = await Promise.all([
+      getHeroAbilities(listed.id, source, role),
+      role ? getHeroRoleItems(listed.id, role, MIN_ITEM_COST) : null,
+    ]);
+    data = {
+      listed,
+      meta,
+      items,
+      timings,
+      matchups,
+      abilities,
+      roles,
+      roleItems,
+      role,
+    };
   } catch (error) {
     if (!(error instanceof ApiError)) throw error;
     return (
@@ -455,8 +470,17 @@ export default async function HeroPage({ params, searchParams }: Props) {
       </p>
     );
   }
-  const { listed, meta, items, timings, matchups, abilities, roles, roleItems } =
-    data;
+  const {
+    listed,
+    meta,
+    items,
+    timings,
+    matchups,
+    abilities,
+    roles,
+    roleItems,
+    role,
+  } = data;
   const hero = meta.heroes.find((other) => other.id === listed.id);
   // the place among the heroes with the minimum sample
   const ranked = meta.heroes.filter((other) => other.matches >= minMatches);
@@ -487,6 +511,7 @@ export default async function HeroPage({ params, searchParams }: Props) {
           roles={roles}
           path={path}
           filters={filters}
+          selected={role}
         />
       ) : (
         <div className="hero-header">
