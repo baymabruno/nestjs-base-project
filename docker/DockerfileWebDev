@@ -1,0 +1,17 @@
+FROM node:26.11.1@sha256:32fa97f3363975684b08bf4e8a68a47c7905175cc20275b50b974bbd02aba731
+
+LABEL maintainer="Vertex Digital"
+
+ENV TZ=America/Sao_Paulo \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PATH=/app/node_modules/.bin:$PATH
+
+WORKDIR /app/
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

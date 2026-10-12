@@ -134,6 +134,10 @@ Reiniciar sem downtime:
 docker-compose exec node pm2 reload node-backend
 ```
 
+## Site
+
+O site roda no container `dota-metrics-web` (imagem `docker/DockerfileWeb`, com a saída standalone do Next.js, sem npm e com o usuário `node`), na porta `WEB_PORT`. Ele sobe depois que a API estiver saudável e a chama pela rede interna do Docker Compose. Coloque o proxy reverso na frente do site, que é a parte pública; a API só precisa ser exposta se outros clientes a usarem.
+
 ## Banco de dados
 
 O PostgreSQL roda no container `dota-metrics-postgres`, sem porta exposta no servidor: só a aplicação acessa o banco, pela rede interna do Docker Compose. Os dados ficam no volume `postgres-data`.

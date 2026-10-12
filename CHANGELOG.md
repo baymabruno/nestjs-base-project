@@ -16,5 +16,6 @@ As mudanças de cada versão do Dota Metrics. O formato segue o [Keep a Changelo
 - Comando `./setup.sh backfill [dias]` para carregar as partidas passadas (padrão de 1 dia), que continua de onde parou e usa no máximo metade da cota diária.
 - O cliente do OpenDota respeita o limite por minuto pelo cabeçalho `x-rate-limit-remaining-minute` e espera um minuto após um 429, sem considerar a cota diária esgotada.
 - Referência de todas as variáveis de ambiente (`docs/CONFIGURACAO.md`) e um comentário para cada uma no `.env.example`, que deixa de trazer as variáveis de e-mail, não usadas.
+- Site em Next.js 16 (`web/`), com a página de meta: win rate, win rate ajustada pelo intervalo de Wilson, pick rate, win rate por duração e tendência diária, com filtros de fonte, rank, período e amostra mínima. Roda nos ambientes de desenvolvimento e produção, com a própria verificação no CI.
 - Rota `GET /api/v1/meta/heroes` e a tabela `hero_daily_stats`, recalculada pelo worker.
 - Metabase no ambiente de desenvolvimento (`./setup.sh metabase`), com um usuário somente leitura no banco e o painel Dota Metrics criado automaticamente.

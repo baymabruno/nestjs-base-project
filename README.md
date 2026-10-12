@@ -64,6 +64,7 @@ O nome precisa ter apenas letras minúsculas, números e hífens (por exemplo, `
 | Banco de dados | PostgreSQL 18 com Prisma 7 (driver `pg`, migrations versionadas) |
 | Fonte dos dados | API do OpenDota (partidas, heróis, itens e patches) |
 | Coleta | Processo worker separado, com `@nestjs/schedule` |
+| Site | Next.js 16 (React 19) em `web/`, com renderização no servidor |
 | Painéis | Metabase em desenvolvimento (`./setup.sh metabase`) |
 | Linguagem | TypeScript 6 (modo strict) |
 | Execução | Node.js 26, com PM2 dentro do Docker |
@@ -100,6 +101,7 @@ src/
 ├── common/                     contexto da requisição, logger e propagação do X-Request-Id
 ├── middleware/                 ID de requisição e log de cada requisição
 └── filters/                    formato padrão das respostas de erro
+web/                            site em Next.js (páginas de estatísticas), projeto separado com o próprio package.json
 prisma/                         schema do banco e migrations
 test/                           testes e2e (http, swagger, auth e stats), banco de testes e utilitários (support/)
 views/                          página inicial (Handlebars)
@@ -146,6 +148,21 @@ O comando volta no tempo página por página (`less_than_match_id`). As partidas
 **Facetas.** No patch 7.41, todas as facetas estão descontinuadas no OpenDota e as partidas não informam a faceta escolhida, então elas não são coletadas.
 
 **Desempenho.** Os itens ficam em arrays (`smallint[]`) na linha de cada jogador, e o patch e a data da partida são copiados para essa linha, então as estatísticas leem uma única tabela, sem join. O worker agrega as estatísticas no próprio PostgreSQL e grava o resultado em tabelas pequenas (`hero_stats` e `hero_item_stats`), e a API só lê essas tabelas. Cada recálculo apaga as estatísticas anteriores, então só o meta do patch atual fica disponível.
+
+## Site
+
+O site (`web/`) mostra as estatísticas em páginas. É um projeto Next.js separado, que roda no container `dota-metrics-web` (http://localhost:3002, porta `WEB_PORT`) e lê a API pela rede do Docker Compose. As respostas da API ficam em cache por 15 minutos, o mesmo intervalo do recálculo das estatísticas.
+
+**Página de meta (`/meta`)**, inspirada na página de meta do [Dota2ProTracker](https://dota2protracker.com/meta) e nas tendências do [STRATZ](https://stratz.com/heroes/meta/trends):
+
+| Coluna | Cálculo |
+|---|---|
+| Partidas, win rate e pick rate | No período e nos filtros escolhidos |
+| WR ajustada (ordem padrão) | Limite inferior do intervalo de Wilson (95%) da win rate: a win rate que a amostra garante. Com poucas partidas fica bem abaixo da win rate, então amostras pequenas não chegam ao topo por acaso |
+| Win rate por duração | Partidas de até 35 minutos, de 35 a 50 e de 50 ou mais |
+| Tendência | Win rate por dia e a diferença entre a segunda e a primeira metade do período |
+
+Os filtros (fonte, rank, período e amostra mínima) ficam na URL, então uma visão pode ser compartilhada por link. A API calcula tudo a partir da tabela `hero_daily_stats` (herói × dia × fonte × rank × duração), recalculada pelo worker.
 
 ## Endpoints
 

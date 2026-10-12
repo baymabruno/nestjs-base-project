@@ -298,6 +298,7 @@ print_urls() {
   base="http://localhost:$(port)"
 
   echo
+  echo "  Site:    http://localhost:$(get_env WEB_PORT | grep . || echo 3002)"
   echo "  App:     $base"
   echo "  Health:  $base/health"
   [ "$(get_env SWAGGER)" = "true" ] && echo "  Swagger: $base/doc"
@@ -323,7 +324,9 @@ copy_node_modules() {
   info "Copying node_modules from the container to the project folder"
   mkdir -p node_modules
   docker cp "$CONTAINER:/var/www/html/node_modules/." ./node_modules >/dev/null
-  fix_ownership node_modules
+  mkdir -p web/node_modules
+  docker cp "$CONTAINER-web:/app/node_modules/." ./web/node_modules >/dev/null
+  fix_ownership node_modules web/node_modules
   success "node_modules copied"
 }
 

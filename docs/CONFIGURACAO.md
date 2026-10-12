@@ -9,7 +9,7 @@ Para a instalação e a operação de cada ambiente, veja os guias de [desenvolv
 | Leitor | Quando | Variáveis |
 |---|---|---|
 | Aplicação (API, worker e backfill) | Ao iniciar cada processo | A maioria. São validadas em `src/config/env.validation.ts`: com um valor inválido ou faltando, o processo não sobe e o log mostra qual variável está errada |
-| Docker Compose | Ao criar os containers | Portas, limites de recursos e credenciais do PostgreSQL |
+| Docker Compose | Ao criar os containers | Portas, limites de recursos, credenciais do PostgreSQL e o site |
 | PM2 | Ao iniciar o container | `PM2_INSTANCES` |
 | `setup.sh` | Ao executar os comandos | Lê e gera as credenciais (chaves do JWT, senhas do banco e do Metabase) |
 
@@ -38,6 +38,16 @@ docker exec dota-metrics pm2 restart worker
 | `TRUST_PROXY` | `false` | Proxies reversos autorizados a informar o IP do cliente (`X-Forwarded-For`): `false` (nenhum), `true` (qualquer um), o número de proxies na frente da aplicação (por exemplo `1` atrás de um nginx ou load balancer) ou uma lista de endereços e sub-redes. Sem ele, atrás de um proxy, todas as requisições parecem vir do proxy e dividem o mesmo limite. Só ative com um proxy de fato, porque o cabeçalho pode ser forjado por quem acessa a aplicação diretamente |
 | `THROTTLE_TTL` | `60000` | Janela do limite de requisições por IP, em milissegundos |
 | `THROTTLE_LIMIT` | `100` | Requisições permitidas por IP dentro da janela. O login tem um limite próprio, de 5 por minuto. Com mais de um processo no PM2, cada um conta separadamente, então o limite efetivo é multiplicado pelo número de processos |
+
+## Site
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `WEB_PORT` | `3002` | Porta do site na máquina. O site chama a API pela rede do Docker Compose, então não precisa do endereço dela |
+| `WEB_CPU_LIMIT` | `1` | Produção: limite de CPU do container do site |
+| `WEB_MEMORY_LIMIT` | `512m` | Produção: limite de memória do container do site |
+
+O endereço da API usado pelo site (`API_URL`) é definido nos arquivos do Docker Compose (`http://node:<PORT>`) e lido em tempo de execução, então a mesma imagem serve para qualquer ambiente.
 
 ## Processos e containers
 

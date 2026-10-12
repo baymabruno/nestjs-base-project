@@ -20,6 +20,15 @@ updates:
       - dependency-name: '@types/node'
         update-types: [version-update:semver-major]
 
+  # website (web/)
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    groups:
+      nextjs:
+        patterns: ['next', 'eslint-config-next', 'react', 'react-dom', '@types/react*']
+
   - package-ecosystem: docker
     directory: /docker
     schedule:

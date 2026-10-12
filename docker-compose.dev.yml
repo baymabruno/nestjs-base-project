@@ -20,6 +20,28 @@ services:
     networks:
       - nest_network
 
+  # website (Next.js, web/): reloads on file changes
+  web:
+    container_name: dota-metrics-web
+    image: dota-metrics-web-dev
+    restart: on-failure
+    build:
+      context: ./web
+      dockerfile: ../docker/DockerfileWebDev
+    environment:
+      # the API, through the compose network
+      API_URL: http://node:${PORT:-3000}
+    volumes:
+      - ./web/:/app/
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - ${WEB_PORT:-3002}:3000
+    depends_on:
+      - node
+    networks:
+      - nest_network
+
   # database (PostgreSQL)
   postgres:
     container_name: dota-metrics-postgres

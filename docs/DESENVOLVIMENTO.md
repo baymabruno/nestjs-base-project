@@ -116,7 +116,8 @@ O `./setup.sh install dev` já faz isso.
 
 | Endereço | Descrição |
 |---|---|
-| http://localhost:3000 | Página inicial |
+| http://localhost:3002 | Site (página de meta), porta definida em `WEB_PORT` |
+| http://localhost:3000 | Página inicial da API |
 | http://localhost:3000/doc | Swagger (com `SWAGGER="true"`, o padrão em desenvolvimento) |
 | http://localhost:3000/health | Health check |
 | `localhost:9229` | Debugger do Node.js (porta definida em `DEBUG_PORT`) |
@@ -302,6 +303,33 @@ docker exec -it dota-metrics-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTG
 ```
 
 Os dados ficam no volume `postgres-data`, que continua existindo depois do `./setup.sh stop`.
+
+## Site
+
+O site (`web/`) roda no container `dota-metrics-web`, com `next dev`: ao salvar um arquivo, a página recarrega no navegador. Ele sobe com o `./setup.sh install dev` e o `./setup.sh start dev`.
+
+Logs do site:
+
+```bash
+docker logs -f dota-metrics-web
+```
+
+Lint e tipos do site:
+
+```bash
+docker exec dota-metrics-web npm run lint
+docker exec dota-metrics-web npx tsc --noEmit
+```
+
+Ao adicionar dependências no `web/package.json`, recrie o container com o `-V`, como na API:
+
+```bash
+docker-compose --file docker-compose.dev.yml up -d --build -V web
+```
+
+O modo de desenvolvimento do Next.js só aceita acessos de `localhost`: por outro endereço (por exemplo, pelo IP da máquina na rede), a página carrega, mas sem o JavaScript, então a tabela não ordena. A imagem de produção não tem essa restrição.
+
+Antes de alterar o site, leia o `web/AGENTS.md`: a versão 16 do Next.js mudou APIs e convenções, e a documentação da versão instalada fica em `web/node_modules/next/dist/docs/`.
 
 ## Carga de partidas passadas
 

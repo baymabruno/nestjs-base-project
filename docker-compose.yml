@@ -35,6 +35,39 @@ services:
     networks:
       - nest_network
 
+  # website (Next.js, web/)
+  web:
+    container_name: dota-metrics-web
+    image: dota-metrics-web
+    restart: unless-stopped
+    build:
+      context: ./web
+      dockerfile: ../docker/DockerfileWeb
+    environment:
+      # the API, through the compose network
+      API_URL: http://node:${PORT:-3000}
+    ports:
+      - ${WEB_PORT:-3002}:3000
+    depends_on:
+      node:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '${WEB_CPU_LIMIT:-1}'
+          memory: ${WEB_MEMORY_LIMIT:-512m}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+      - nest_network
+
   # database (PostgreSQL): reachable only by the application
   postgres:
     container_name: dota-metrics-postgres
