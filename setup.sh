@@ -10,6 +10,7 @@
 #   restart   restart the container
 #   logs      follow the application logs
 #   status    show the container and PM2 status
+#   metabase  start Metabase with the statistics dashboard (dev only)
 #
 # The environment defaults to "dev".
 #
@@ -43,7 +44,7 @@ fail() {
 }
 
 usage() {
-  sed -n '3,19p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'
   exit 1
 }
 
@@ -346,11 +347,73 @@ start() {
   print_urls
 }
 
+# ---- metabase (development) ----
+
+# Credentials of the Metabase admin and of its read-only database user
+configure_metabase() {
+  [ -n "$(get_env METABASE_ADMIN_EMAIL)" ] ||
+    set_env METABASE_ADMIN_EMAIL "admin@dota-metrics.local"
+  [ -n "$(get_env METABASE_ADMIN_PASSWORD)" ] ||
+    set_env METABASE_ADMIN_PASSWORD "$(openssl rand -hex 16)"
+  [ -n "$(get_env METABASE_READER_PASSWORD)" ] ||
+    set_env METABASE_READER_PASSWORD "$(openssl rand -hex 24)"
+  fix_ownership .env
+}
+
+# Creates the "metabase" database (Metabase's own data) and the read-only
+# user that Metabase uses to query the application tables, including the
+# tables created by future migrations
+prepare_metabase_database() {
+  docker exec -i "$CONTAINER-postgres" sh -c \
+    'psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v reader_password="$1"' \
+    sh "$(get_env METABASE_READER_PASSWORD)" <<'SQL'
+SELECT 'CREATE DATABASE metabase'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'metabase') \gexec
+SELECT 'CREATE ROLE metabase_reader LOGIN'
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'metabase_reader') \gexec
+ALTER ROLE metabase_reader PASSWORD :'reader_password';
+GRANT USAGE ON SCHEMA public TO metabase_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO metabase_reader;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO metabase_reader;
+SQL
+}
+
+metabase() {
+  [ "$ENVIRONMENT" = "dev" ] || fail "Metabase is only available in development"
+  check_requirements
+  [ -f .env ] || fail ".env not found. Run: $SETUP_CMD install dev"
+  docker ps --format '{{.Names}}' | grep -qx "$CONTAINER" ||
+    fail "The application is not running. Run: $SETUP_CMD start dev"
+
+  configure_metabase
+  info "Preparing the database for Metabase"
+  prepare_metabase_database
+
+  info "Starting Metabase (the first start takes about a minute)"
+  compose --profile metabase up -d metabase
+
+  info "Configuring Metabase"
+  docker exec \
+    -e METABASE_ADMIN_EMAIL="$(get_env METABASE_ADMIN_EMAIL)" \
+    -e METABASE_ADMIN_PASSWORD="$(get_env METABASE_ADMIN_PASSWORD)" \
+    -e METABASE_READER_PASSWORD="$(get_env METABASE_READER_PASSWORD)" \
+    -e POSTGRES_DB="$(get_env POSTGRES_DB)" \
+    "$CONTAINER" node docker/metabase-setup.mjs
+  success "Metabase is up"
+
+  echo
+  echo "  Metabase: http://localhost:$(get_env METABASE_PORT | grep . || echo 3001)"
+  echo "  Login:    $(get_env METABASE_ADMIN_EMAIL)"
+  echo "  Password: METABASE_ADMIN_PASSWORD in .env"
+  echo
+}
+
 case "$COMMAND" in
   rename) rename_project "$RENAME_TO" ;;
   install) install ;;
   start) start ;;
-  stop) compose down ;;
+  # the profile also stops Metabase when it is running
+  stop) compose --profile metabase down ;;
   restart)
     compose restart
     wait_until_healthy
@@ -360,5 +423,6 @@ case "$COMMAND" in
     compose ps
     docker exec "$CONTAINER" pm2 status 2>/dev/null || true
     ;;
+  metabase) metabase ;;
   *) usage ;;
 esac
