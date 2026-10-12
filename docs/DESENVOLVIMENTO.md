@@ -114,9 +114,11 @@ O `./setup.sh install dev` já faz isso.
 
 ## Endereços
 
+Com o ambiente no ar (`./setup.sh install dev` ou `./setup.sh start dev`), abra no navegador:
+
 | Endereço | Descrição |
 |---|---|
-| http://localhost:3002 | Site (página de meta), porta definida em `WEB_PORT` |
+| http://localhost:3002 | Site: abre na página de meta (`/meta`). Porta definida em `WEB_PORT` |
 | http://localhost:3000 | Página inicial da API |
 | http://localhost:3000/doc | Swagger (com `SWAGGER="true"`, o padrão em desenvolvimento) |
 | http://localhost:3000/health | Health check |
@@ -124,7 +126,9 @@ O `./setup.sh install dev` já faz isso.
 | http://localhost:3001 | Metabase, quando iniciado com `./setup.sh metabase` (porta definida em `METABASE_PORT`) |
 | `localhost:5432` | PostgreSQL, para clientes de banco como DBeaver ou psql (porta definida em `POSTGRES_PORT`; usuário, senha e banco no `.env`) |
 
-As portas são as do `.env` (`PORT`, `DEBUG_PORT`, `POSTGRES_PORT` e `METABASE_PORT`). Todas as variáveis estão descritas em [Configuração](CONFIGURACAO.md), inclusive como aplicar uma alteração: em desenvolvimento, `./setup.sh restart dev` para as da aplicação e `./setup.sh start dev` para as do Docker Compose (portas).
+No site, os filtros (fonte, rank, período e amostra mínima) ficam na URL, então uma visão pode ser salva ou compartilhada, por exemplo http://localhost:3002/meta?source=pro&days=30. Clique no título de uma coluna para ordenar a tabela, e de novo para inverter. Acesse sempre por `localhost`: em desenvolvimento, por outro endereço (como o IP da máquina na rede), a página abre sem o JavaScript e a tabela não ordena (veja [Site](#site)).
+
+As portas são as do `.env` (`WEB_PORT`, `PORT`, `DEBUG_PORT`, `POSTGRES_PORT` e `METABASE_PORT`). Todas as variáveis estão descritas em [Configuração](CONFIGURACAO.md), inclusive como aplicar uma alteração: em desenvolvimento, `./setup.sh restart dev` para as da aplicação e `./setup.sh start dev` para as do Docker Compose (portas).
 
 Em desenvolvimento, o `.env` de exemplo já vem com `SWAGGER="true"` e `LOG_LEVEL="debug"`, e os usuários de demonstração ficam disponíveis (veja [Usuários de demonstração e senhas](#usuários-de-demonstração-e-senhas)).
 

@@ -151,7 +151,7 @@ O comando volta no tempo página por página (`less_than_match_id`). As partidas
 
 ## Site
 
-O site (`web/`) mostra as estatísticas em páginas. É um projeto Next.js separado, que roda no container `dota-metrics-web` (http://localhost:3002, porta `WEB_PORT`) e lê a API pela rede do Docker Compose. As respostas da API ficam em cache por 15 minutos, o mesmo intervalo do recálculo das estatísticas.
+O site (`web/`) mostra as estatísticas em páginas. É um projeto Next.js separado, que roda no container `dota-metrics-web` (http://localhost:3002, porta `WEB_PORT`) e lê a API pela rede do Docker Compose. Os endereços de cada serviço no navegador estão em [Endereços](docs/DESENVOLVIMENTO.md#endereços), no guia de desenvolvimento. As respostas da API ficam em cache por 15 minutos, o mesmo intervalo do recálculo das estatísticas.
 
 **Página de meta (`/meta`)**, inspirada na página de meta do [Dota2ProTracker](https://dota2protracker.com/meta) e nas tendências do [STRATZ](https://stratz.com/heroes/meta/trends):
 
