@@ -38,6 +38,8 @@ export class StatsService {
       this.prisma.heroStat.deleteMany(),
       this.prisma.heroItemStat.deleteMany(),
       this.prisma.heroDailyStat.deleteMany(),
+      this.prisma.heroMatchupStat.deleteMany(),
+      this.prisma.heroItemTimingStat.deleteMany(),
       this.prisma.$executeRaw`
         INSERT INTO hero_stats (patch_id, source, hero_id, matches, wins, updated_at)
         SELECT patch_id, source, hero_id, count(*), count(*) FILTER (WHERE win), now()
@@ -71,6 +73,33 @@ export class StatsService {
         JOIN matches m ON m.id = p.match_id
         WHERE p.patch_id = ${patchId}
         GROUP BY 1, 2, 3, 4, 5, 6`,
+      // each player with the other 9 of the match (slots under 128: radiant)
+      this.prisma.$executeRaw`
+        INSERT INTO hero_matchup_stats (patch_id, source, hero_id, other_hero_id,
+          ally, matches, wins)
+        SELECT a.patch_id, a.source, a.hero_id, b.hero_id,
+          (a.player_slot < 128) = (b.player_slot < 128),
+          count(*), count(*) FILTER (WHERE a.win)
+        FROM match_players a
+        JOIN match_players b ON b.match_id = a.match_id
+          AND b.player_slot <> a.player_slot
+        WHERE a.patch_id = ${patchId}
+        GROUP BY 1, 2, 3, 4, 5`,
+      // first purchase of each item: before the horn (0) or 5 minute windows
+      this.prisma.$executeRaw`
+        INSERT INTO hero_item_timing_stats (patch_id, source, hero_id, item_id,
+          bucket, matches, wins, time_sum)
+        SELECT p.patch_id, p.source, p.hero_id, f.item_id,
+          CASE WHEN f.time <= 0 THEN 0 ELSE least(f.time / 300 + 1, 13) END,
+          count(*), count(*) FILTER (WHERE p.win), sum(f.time)
+        FROM match_players p
+        CROSS JOIN LATERAL (
+          SELECT u.item_id, min(u.time) AS time
+          FROM unnest(p.purchase_items, p.purchase_times) AS u(item_id, time)
+          GROUP BY u.item_id
+        ) f
+        WHERE p.patch_id = ${patchId} AND cardinality(p.purchase_items) > 0
+        GROUP BY 1, 2, 3, 4, 5`,
     ]);
   }
 
@@ -158,16 +187,29 @@ export class StatsService {
       heroes.find((h) => h.id === heroId) ??
       (await this.heroWithoutStats(heroId));
 
-    const itemStats = await this.prisma.heroItemStat.groupBy({
-      by: ['itemId'],
-      where: { ...this.sourceFilter(source), heroId },
-      _sum: {
-        matches: true,
-        wins: true,
-        purchaseTimeSum: true,
-        purchaseTimeCount: true,
-      },
-    });
+    const [itemStats, itemMatches] = await Promise.all([
+      this.prisma.heroItemStat.groupBy({
+        by: ['itemId'],
+        where: { ...this.sourceFilter(source), heroId },
+        _sum: {
+          matches: true,
+          wins: true,
+          purchaseTimeSum: true,
+          purchaseTimeCount: true,
+        },
+      }),
+      // the share of each item is over these matches, not all of the hero
+      patch
+        ? this.prisma.matchPlayer.count({
+            where: {
+              heroId,
+              patchId: patch.id,
+              items: { isEmpty: false },
+              ...(source && { source: SOURCES[source] }),
+            },
+          })
+        : 0,
+    ]);
     const items = await this.prisma.item.findMany({
       where: { id: { in: itemStats.map((stat) => stat.itemId) } },
     });
@@ -176,6 +218,7 @@ export class StatsService {
     return {
       patch,
       hero,
+      itemMatches,
       items: itemStats
         .flatMap((stat) => {
           const item = itemById.get(stat.itemId);

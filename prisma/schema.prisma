@@ -165,3 +165,37 @@ model HeroDailyStat {
   @@id([patchId, day, source, rankBracket, durationBucket, heroId])
   @@map("hero_daily_stats")
 }
+
+// hero with another hero in the same match: as enemies or allies (all
+// matches with heroes, details not needed)
+model HeroMatchupStat {
+  patchId     Int         @map("patch_id") @db.SmallInt
+  source      MatchSource
+  heroId      Int         @map("hero_id") @db.SmallInt
+  otherHeroId Int         @map("other_hero_id") @db.SmallInt
+  // true: same team
+  ally        Boolean
+  matches     Int
+  // wins of hero_id
+  wins        Int
+
+  @@id([patchId, source, heroId, otherHeroId, ally])
+  @@map("hero_matchup_stats")
+}
+
+// first purchase of each item by a hero, per time bucket (parsed matches):
+// 0 before the horn, then 5 minute windows (1: 0-5, 2: 5-10 ... 13: 60+)
+model HeroItemTimingStat {
+  patchId   Int         @map("patch_id") @db.SmallInt
+  source    MatchSource
+  heroId    Int         @map("hero_id") @db.SmallInt
+  itemId    Int         @map("item_id") @db.SmallInt
+  bucket    Int         @db.SmallInt
+  matches   Int
+  wins      Int
+  // sum of the purchase times (seconds), for the average
+  timeSum   BigInt      @map("time_sum")
+
+  @@id([patchId, source, heroId, itemId, bucket])
+  @@map("hero_item_timing_stats")
+}

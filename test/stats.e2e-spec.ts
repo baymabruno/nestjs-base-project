@@ -83,6 +83,34 @@ describe('Stats (e2e)', () => {
     },
   );
 
+  it('/api/v1/heroes/:heroId/matchups (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/heroes/1/matchups?source=public')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.hero).toMatchObject({ id: 1, matches: 2, winRate: 1 });
+        expect(res.body.enemies[0]).toMatchObject({ id: 2, matches: 2 });
+      });
+  });
+
+  it('/api/v1/heroes/:heroId/item-timings (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/heroes/1/item-timings?minItemCost=3000')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.matches).toBe(1);
+        expect(res.body.items).toEqual([
+          expect.objectContaining({ name: 'bfury', avgTime: 600 }),
+        ]);
+      });
+  });
+
+  it('returns 404 for the matchups of an unknown hero', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/heroes/999/matchups')
+      .expect(404);
+  });
+
   it('rejects invalid filters', () => {
     return request(app.getHttpServer())
       .get('/api/v1/heroes?source=ranked')

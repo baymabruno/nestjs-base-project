@@ -79,6 +79,11 @@ export const heroDetailsSchema = z
   .object({
     patch: patchSchema.nullable(),
     hero: heroStatsSchema,
+    itemMatches: z
+      .number()
+      .describe(
+        'Matches of the hero with the final items known (details fetched): the base of the item shares',
+      ),
     items: z
       .array(
         z.object({
@@ -181,3 +186,99 @@ export const metaHeroesSchema = z
 
 export type MetaHeroesQuery = z.infer<typeof metaHeroesQuerySchema>;
 export type MetaHeroes = z.infer<typeof metaHeroesSchema>;
+
+// ---- hero page ----
+
+export const heroMatchupsQuerySchema = z
+  .strictObject({ source, minMatches })
+  .meta({ id: 'HeroMatchupsQuery' });
+
+const matchupSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  localizedName: z.string(),
+  matches: z.number(),
+  wins: z.number().describe('Wins of the hero of the page'),
+  winRate: rate,
+  winRateLow: rate.describe('Lower bound of the 95% Wilson interval'),
+  winRateHigh: rate.describe('Upper bound of the 95% Wilson interval'),
+  delta: z
+    .number()
+    .describe(
+      'Win rate in this matchup minus the overall win rate of the hero',
+    ),
+});
+
+export const heroMatchupsSchema = z
+  .object({
+    hero: z.object({
+      id: z.number(),
+      matches: z.number(),
+      winRate: rate.describe('Overall win rate, the reference of the deltas'),
+    }),
+    enemies: z
+      .array(matchupSchema)
+      .describe('Win rate of the hero against each enemy hero'),
+    allies: z
+      .array(matchupSchema)
+      .describe('Win rate of the hero with each allied hero'),
+  })
+  .meta({ id: 'HeroMatchups' });
+
+export const heroItemTimingsQuerySchema = z
+  .strictObject({
+    source,
+    minMatches,
+    minItemCost: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .default(0)
+      .describe('Leaves out cheaper items, e.g. 1000 for core items only'),
+  })
+  .meta({ id: 'HeroItemTimingsQuery' });
+
+export const heroItemTimingsSchema = z
+  .object({
+    matches: z
+      .number()
+      .describe('Matches of the hero with the purchase order (parsed)'),
+    items: z
+      .array(
+        z.object({
+          id: z.number(),
+          name: z.string(),
+          displayName: z.string().nullable(),
+          cost: z.number().nullable(),
+          matches: z.number().describe('Matches in which the item was bought'),
+          wins: z.number(),
+          winRate: rate,
+          purchaseRate: rate.describe('Share of the matches with the item'),
+          avgTime: z
+            .number()
+            .describe('Average time of the first purchase, in seconds'),
+          timings: z
+            .array(
+              z.object({
+                bucket: z
+                  .number()
+                  .describe(
+                    '0: before the horn, then 5 minute windows (1: 0-5 min ... 13: 60+)',
+                  ),
+                fromMinute: z.number().nullable(),
+                toMinute: z.number().nullable(),
+                matches: z.number(),
+                winRate: rate,
+              }),
+            )
+            .describe('Win rate by the time of the first purchase'),
+        }),
+      )
+      .describe('Most bought first'),
+  })
+  .meta({ id: 'HeroItemTimings' });
+
+export type HeroMatchupsQuery = z.infer<typeof heroMatchupsQuerySchema>;
+export type HeroMatchups = z.infer<typeof heroMatchupsSchema>;
+export type HeroItemTimingsQuery = z.infer<typeof heroItemTimingsQuerySchema>;
+export type HeroItemTimings = z.infer<typeof heroItemTimingsSchema>;

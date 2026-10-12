@@ -78,12 +78,14 @@ describe('StatsService', () => {
     });
 
     it('returns a hero with its items', async () => {
-      const { hero, items } = await service.getHero(1, {
+      const { hero, itemMatches, items } = await service.getHero(1, {
         minMatches: 1,
         minItemCost: 0,
       });
 
       expect(hero).toMatchObject({ id: 1, matches: 3 });
+      // only the pro match has the items
+      expect(itemMatches).toBe(1);
       // the items come from the pro match (the only one with details)
       expect(items).toEqual([
         expect.objectContaining({
