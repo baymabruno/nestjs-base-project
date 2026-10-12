@@ -24,6 +24,7 @@
     "start:pm2": "pm2-runtime start ecosystem.config.cjs",
     "prestart:pm2-dev": "prisma generate",
     "start:pm2-dev": "pm2-runtime start ecosystem.dev.config.cjs",
+    "backfill": "node dist/backfill.js",
     "prisma:generate": "prisma generate",
     "migrate:dev": "prisma migrate dev",
     "postmigrate:dev": "prisma generate",

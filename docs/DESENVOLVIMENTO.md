@@ -311,6 +311,22 @@ docker exec -it dota-metrics-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTG
 
 Os dados ficam no volume `postgres-data`, que continua existindo depois do `./setup.sh stop`.
 
+## Carga de partidas passadas
+
+O worker coleta só as partidas novas, a partir de quando sobe. Para carregar as dos últimos dias:
+
+```bash
+./setup.sh backfill
+```
+
+Sem parâmetro, carrega o último dia. Para outro período, informe os dias (até `MATCH_RETENTION_DAYS`):
+
+```bash
+./setup.sh backfill 3
+```
+
+Cada execução usa no máximo metade das requisições do OpenDota que restam no dia. Se o período ficar incompleto, o comando avisa: execute de novo depois (no dia seguinte, com a cota renovada) e ele continua de onde parou. Veja os detalhes em [Coleta e estatísticas](../README.md#coleta-e-estatísticas) no README.
+
 ## Metabase
 
 O [Metabase](https://www.metabase.com) mostra as estatísticas e o andamento da coleta em painéis, direto do banco. Ele não sobe com os outros comandos, porque usa cerca de 1GB de memória. Para iniciar:

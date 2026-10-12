@@ -13,7 +13,15 @@ import { StatsService } from '../stats/stats.service.js';
 // public matches kept: ranked lobby, All Pick
 const RANKED_LOBBY = 7;
 const ALL_PICK_RANKED = 22;
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Ranked All Pick public match of the minimum rank, with 5 heroes per team */
+export const isWantedPublicMatch = (match: PublicMatch, minRankTier: number) =>
+  match.lobby_type === RANKED_LOBBY &&
+  match.game_mode === ALL_PICK_RANKED &&
+  (match.avg_rank_tier ?? 0) >= minRankTier &&
+  match.radiant_team.length === 5 &&
+  match.dire_team.length === 5;
 
 /**
  * Collects matches from OpenDota: the latest pro and public matches, then the
@@ -58,7 +66,7 @@ export class IngestionService {
       minRank: this.minRankTier,
     });
     return this.matches.addPublicMatches(
-      matches.filter((match) => this.isWanted(match)),
+      matches.filter((match) => isWantedPublicMatch(match, this.minRankTier)),
     );
   }
 
@@ -121,16 +129,6 @@ export class IngestionService {
       Math.ceil((midnight.getTime() - now.getTime()) / 60000),
     );
     return Math.min(this.detailsPerMinute, Math.ceil(available / minutesLeft));
-  }
-
-  private isWanted(match: PublicMatch) {
-    return (
-      match.lobby_type === RANKED_LOBBY &&
-      match.game_mode === ALL_PICK_RANKED &&
-      (match.avg_rank_tier ?? 0) >= this.minRankTier &&
-      match.radiant_team.length === 5 &&
-      match.dire_team.length === 5
-    );
   }
 
   private async ensureGameData() {

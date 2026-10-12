@@ -133,6 +133,15 @@ A coleta roda no processo **worker** (`src/worker.ts`), separado da API. A API p
 
 **Partidas processadas.** A ordem de compra (`purchase_log`) só existe nas partidas que o OpenDota processou a partir do replay. As profissionais costumam ser processadas alguns minutos depois do fim; enquanto isso, a partida é consultada de novo (até 5 vezes, com espera crescente). As públicas raramente são processadas e ficam só com os itens finais.
 
+**Carga de partidas passadas (backfill).** O worker só coleta as partidas novas. Para carregar as dos últimos dias, execute com a aplicação no ar:
+
+```bash
+./setup.sh backfill        # último dia
+./setup.sh backfill 5      # últimos 5 dias (até MATCH_RETENTION_DAYS)
+```
+
+O comando volta no tempo página por página (`less_than_match_id`). As partidas profissionais vão da mais recente até o início do período, o que custa poucas requisições, porque cada página cobre alguns dias. As públicas partem da mais antiga já gravada, então uma nova execução continua de onde a anterior parou. Elas são numerosas: cada página de 100 cobre cerca de 2 minutos de jogo, e um dia passa de 800 páginas. Por isso, cada execução usa no máximo metade das requisições que restam no dia, deixando o resto para o worker buscar os detalhes, e avisa quando o período ficou incompleto. Os detalhes (itens) das partidas novas são buscados pelo worker, dentro da cota diária.
+
 **Facetas.** No patch 7.41, todas as facetas estão descontinuadas no OpenDota e as partidas não informam a faceta escolhida, então elas não são coletadas.
 
 **Desempenho.** Os itens ficam em arrays (`smallint[]`) na linha de cada jogador, e o patch e a data da partida são copiados para essa linha, então as estatísticas leem uma única tabela, sem join. O worker agrega as estatísticas no próprio PostgreSQL e grava o resultado em tabelas pequenas (`hero_stats` e `hero_item_stats`), e a API só lê essas tabelas. Cada recálculo apaga as estatísticas anteriores, então só o meta do patch atual fica disponível.

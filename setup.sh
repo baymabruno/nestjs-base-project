@@ -14,6 +14,11 @@
 #
 # The environment defaults to "dev".
 #
+# Usage: ./setup.sh backfill [days] [dev|prod]
+#
+#   backfill  loads the pro and public matches of the last days (default 1,
+#             up to MATCH_RETENTION_DAYS); the app must be running
+#
 # Usage: ./setup.sh rename <new-name>
 #
 #   rename    renames the project (package, containers, images, JWT issuer...)
@@ -44,7 +49,7 @@ fail() {
 }
 
 usage() {
-  sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '3,25p' "$0" | sed 's/^# \{0,1\}//'
   exit 1
 }
 
@@ -101,6 +106,16 @@ if [ "$COMMAND" = "rename" ]; then
   # defined below; the rename does not depend on the environment
   RENAME_TO="$2"
   ENVIRONMENT="dev"
+fi
+
+# backfill [days] [dev|prod]: the days come before the environment
+if [ "$COMMAND" = "backfill" ]; then
+  if [[ "${2:-}" =~ ^[0-9]+$ ]]; then
+    BACKFILL_DAYS="$2"
+    ENVIRONMENT="${3:-dev}"
+  else
+    BACKFILL_DAYS=""
+  fi
 fi
 
 case "$ENVIRONMENT" in
@@ -408,6 +423,19 @@ metabase() {
   echo
 }
 
+# ---- backfill ----
+
+# Loads past matches in the running app container (src/backfill.ts); the
+# worker then fetches their details within the daily quota
+backfill() {
+  docker ps --format '{{.Names}}' | grep -qx "$CONTAINER" ||
+    fail "The application is not running. Run: $SETUP_CMD start $ENVIRONMENT"
+
+  info "Loading past matches (it can take a few minutes)"
+  # the number of days is validated by the application
+  docker exec "$CONTAINER" node dist/backfill.js ${BACKFILL_DAYS:+"$BACKFILL_DAYS"}
+}
+
 case "$COMMAND" in
   rename) rename_project "$RENAME_TO" ;;
   install) install ;;
@@ -424,5 +452,6 @@ case "$COMMAND" in
     docker exec "$CONTAINER" pm2 status 2>/dev/null || true
     ;;
   metabase) metabase ;;
+  backfill) backfill ;;
   *) usage ;;
 esac

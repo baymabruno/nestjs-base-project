@@ -36,13 +36,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      // main.ts and worker.ts only bootstrap the processes; interfaces have
-      // no runtime code; src/generated is the Prisma client
+      // main.ts, worker.ts and backfill.ts only bootstrap the processes;
+      // interfaces have no runtime code; src/generated is the Prisma client
       exclude: [
         'src/**/*.spec.ts',
         'src/**/*.int-spec.ts',
         'src/main.ts',
         'src/worker.ts',
+        'src/backfill.ts',
         'src/**/interfaces/**',
         'src/generated/**',
       ],

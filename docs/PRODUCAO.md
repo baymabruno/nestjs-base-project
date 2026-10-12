@@ -158,6 +158,17 @@ Para restaurar:
 docker exec -i dota-metrics-postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean' < dota-metrics.dump
 ```
 
+## Carga de partidas passadas
+
+Com a aplicação no ar, carregue as partidas do último dia, ou de mais dias, até `MATCH_RETENTION_DAYS`:
+
+```bash
+./setup.sh backfill prod
+./setup.sh backfill 3 prod
+```
+
+Veja como o comando funciona em [Coleta e estatísticas](../README.md#coleta-e-estatísticas) no README.
+
 ## Atualizando para uma nova versão
 
 1. Atualize o código no servidor:
