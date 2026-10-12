@@ -123,15 +123,7 @@ O `./setup.sh install dev` já faz isso.
 | http://localhost:3001 | Metabase, quando iniciado com `./setup.sh metabase` (porta definida em `METABASE_PORT`) |
 | `localhost:5432` | PostgreSQL, para clientes de banco como DBeaver ou psql (porta definida em `POSTGRES_PORT`; usuário, senha e banco no `.env`) |
 
-A porta da aplicação é a do `PORT` no `.env`. A descrição das variáveis comuns aos ambientes está na seção [Configuração](../README.md#configuração) do README. Variável específica do desenvolvimento:
-
-| Variável | Descrição |
-|---|---|
-| `DEBUG_PORT` | Porta do debugger na máquina (padrão `9229`) |
-| `POSTGRES_PORT` | Porta do PostgreSQL na máquina (padrão `5432`) |
-| `METABASE_PORT` | Porta do Metabase na máquina (padrão `3001`) |
-| `METABASE_ADMIN_EMAIL` / `METABASE_ADMIN_PASSWORD` | Login do administrador do Metabase, gerado pelo `./setup.sh metabase` |
-| `METABASE_READER_PASSWORD` | Senha do usuário somente leitura que o Metabase usa no banco, gerada pelo `./setup.sh metabase` |
+As portas são as do `.env` (`PORT`, `DEBUG_PORT`, `POSTGRES_PORT` e `METABASE_PORT`). Todas as variáveis estão descritas em [Configuração](CONFIGURACAO.md), inclusive como aplicar uma alteração: em desenvolvimento, `./setup.sh restart dev` para as da aplicação e `./setup.sh start dev` para as do Docker Compose (portas).
 
 Em desenvolvimento, o `.env` de exemplo já vem com `SWAGGER="true"` e `LOG_LEVEL="debug"`, e os usuários de demonstração ficam disponíveis (veja [Usuários de demonstração e senhas](#usuários-de-demonstração-e-senhas)).
 

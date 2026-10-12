@@ -34,6 +34,7 @@ Este documento explica o sistema. A instalação e a operação de cada ambiente
 
 - [Desenvolvimento](docs/DESENVOLVIMENTO.md)
 - [Produção](docs/PRODUCAO.md)
+- [Configuração](docs/CONFIGURACAO.md): todas as variáveis de ambiente
 
 ## Criando um novo projeto a partir desta base
 
@@ -286,31 +287,20 @@ Quando ativada:
 
 ## Configuração
 
-As variáveis ficam no `.env`, a partir do modelo `.env.example`. Elas são validadas na inicialização (`src/config/env.validation.ts`), e a aplicação não sobe se alguma estiver faltando ou for inválida.
+As variáveis ficam no `.env`, a partir do modelo `.env.example`, que traz um comentário para cada uma. Elas são validadas na inicialização (`src/config/env.validation.ts`), e a aplicação não sobe se alguma estiver faltando ou for inválida.
 
-| Variável | Descrição |
+A referência completa, com o padrão, a descrição de cada variável e como aplicar uma alteração em cada ambiente, está em [docs/CONFIGURACAO.md](docs/CONFIGURACAO.md). Os grupos são:
+
+| Grupo | Variáveis |
 |---|---|
-| `APP_ENVIRONMENT` | `production` ativa os logs em JSON e desativa os usuários de demonstração |
-| `PORT` | Porta HTTP (padrão `3000`) |
-| `SWAGGER` | `true` disponibiliza a documentação da API em `/doc` |
-| `LOG_LEVEL` | `verbose`, `debug`, `log`, `warn`, `error` ou `fatal` |
-| `CORS_ORIGINS` | Origens permitidas, separadas por vírgula; vazio permite qualquer origem |
-| `TRUST_PROXY` | Proxies reversos confiáveis: `false` (padrão), `true`, o número de proxies na frente da aplicação (ex.: `1`) ou uma lista de endereços |
-| `THROTTLE_TTL` / `THROTTLE_LIMIT` | Limite de requisições por IP (padrão 100 por minuto; o login é limitado a 5 por minuto) |
-| `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` | Par de chaves RSA (PEM em base64): a privada assina os tokens e a pública os valida. São geradas automaticamente na instalação |
-| `JWT_ISSUER` / `JWT_AUDIENCE` | Emissor (`iss`) e público (`aud`) dos tokens (padrão `dota-metrics`) |
-| `JWT_EXPIRES_IN` | Validade do access token em segundos (padrão `900`, 15 minutos) |
-| `JWT_REFRESH_EXPIRES_IN` | Validade do refresh token em segundos (padrão `604800`, 7 dias) |
-| `DATABASE_URL` | Conexão com o PostgreSQL (`postgresql://usuario:senha@postgres:5432/banco`). Gerada pelo `setup.sh` junto com `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB`, as credenciais do container do banco |
-| `OPENDOTA_API_URL` / `OPENDOTA_API_KEY` | Endereço da API do OpenDota e chave opcional (plano pago, com limites maiores) |
-| `OPENDOTA_REQUEST_INTERVAL_MS` | Intervalo mínimo entre as requisições ao OpenDota (padrão `1100`, abaixo de 60 por minuto) |
-| `OPENDOTA_DAILY_RESERVE` | Requisições diárias guardadas para as listas de partidas (padrão `150`) |
-| `MATCH_RETENTION_DAYS` | Dias de partidas mantidos no banco (padrão `30`) |
-| `PRO_MATCHES_INTERVAL_MINUTES` / `PUBLIC_MATCHES_INTERVAL_MINUTES` | Intervalo entre as consultas das partidas profissionais (padrão `15`) e públicas (padrão `5`) |
-| `PUBLIC_MIN_RANK_TIER` | Rank médio mínimo das partidas públicas: a dezena é a medalha (`70` Divine, `80` Immortal); padrão `70` |
-| `DETAILS_PER_MINUTE` | Máximo de detalhes de partidas consultados por minuto (padrão `30`) |
-| `STATS_INTERVAL_MINUTES` | Intervalo entre os recálculos das estatísticas (padrão `15`) |
-| `OBSERVE_APP_KEY` / `OBSERVE_APP_SECRET` / `OBSERVE_SERVICE_ID` | Observabilidade com o `@nestjs/observe`; desligada enquanto a chave e o segredo estiverem vazios (veja [Observabilidade](#observabilidade)) |
+| Aplicação | `APP_ENVIRONMENT`, `PORT`, `SWAGGER`, `LOG_LEVEL`, `CORS_ORIGINS`, `TRUST_PROXY`, `THROTTLE_TTL`, `THROTTLE_LIMIT` |
+| Processos e containers | `DEBUG_PORT`, `PM2_INSTANCES`, `CPU_LIMIT`, `MEMORY_LIMIT` |
+| Autenticação | `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN` |
+| Observabilidade | `OBSERVE_APP_KEY`, `OBSERVE_APP_SECRET`, `OBSERVE_SERVICE_ID` |
+| API do OpenDota | `OPENDOTA_API_URL`, `OPENDOTA_API_KEY`, `OPENDOTA_REQUEST_INTERVAL_MS`, `OPENDOTA_DAILY_RESERVE` |
+| Coleta de partidas | `MATCH_RETENTION_DAYS`, `PRO_MATCHES_INTERVAL_MINUTES`, `PUBLIC_MATCHES_INTERVAL_MINUTES`, `PUBLIC_MIN_RANK_TIER`, `DETAILS_PER_MINUTE`, `STATS_INTERVAL_MINUTES` |
+| Banco de dados | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`, `POSTGRES_PORT`, `POSTGRES_CPU_LIMIT`, `POSTGRES_MEMORY_LIMIT` |
+| Metabase | `METABASE_PORT`, `METABASE_ADMIN_EMAIL`, `METABASE_ADMIN_PASSWORD`, `METABASE_READER_PASSWORD` |
 
 ## Qualidade
 

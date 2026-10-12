@@ -40,15 +40,9 @@ Revise também:
 - `LOG_LEVEL`: `log` é o recomendado; `debug` e `verbose` geram muito volume.
 - `PM2_INSTANCES`, `CPU_LIMIT` e `MEMORY_LIMIT`: dimensione conforme o servidor (veja [PM2](#pm2)).
 
-Variáveis específicas da produção:
+As variáveis específicas da produção (`PM2_INSTANCES`, `CPU_LIMIT`, `MEMORY_LIMIT`, `POSTGRES_CPU_LIMIT` e `POSTGRES_MEMORY_LIMIT`) e todas as demais estão descritas em [Configuração](CONFIGURACAO.md).
 
-| Variável | Descrição |
-|---|---|
-| `PM2_INSTANCES` | Número de processos do PM2 (padrão `1`, `max` para um por núcleo de CPU) |
-| `CPU_LIMIT` / `MEMORY_LIMIT` | Limites de CPU e memória do container (padrão `1` CPU e `1g`) |
-| `POSTGRES_CPU_LIMIT` / `POSTGRES_MEMORY_LIMIT` | Limites de CPU e memória do container do PostgreSQL (padrão `1` CPU e `1g`) |
-
-A descrição das variáveis comuns aos ambientes está na seção [Configuração](../README.md#configuração) do README.
+> **Aplicando uma alteração do `.env`:** o container recebe as variáveis só quando é criado. Depois de alterar o `.env`, recrie os containers com `./setup.sh start prod`; o `./setup.sh restart prod` reinicia sem aplicar a mudança.
 
 > **Usuários:** em produção, os usuários de demonstração ficam desativados e a lista de usuários fica vazia, então nenhum login funciona até o `UsersService` ser conectado a uma persistência (banco de dados ou outro serviço). Veja [Persistência de usuários](../README.md#persistência-de-usuários) no README.
 
