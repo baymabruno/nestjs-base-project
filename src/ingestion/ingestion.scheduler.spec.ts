@@ -21,10 +21,12 @@ describe('IngestionScheduler', () => {
       fetchDetails: vi.fn().mockResolvedValue(3),
       syncGameData: vi.fn().mockResolvedValue(undefined),
       deleteExpiredMatches: vi.fn().mockResolvedValue(4),
+      refreshStats: vi.fn().mockResolvedValue(undefined),
     };
     const config = new ConfigService({
       PRO_MATCHES_INTERVAL_MINUTES: 15,
       PUBLIC_MATCHES_INTERVAL_MINUTES: 5,
+      STATS_INTERVAL_MINUTES: 15,
     }) as ConfigService<Env, true>;
     scheduler = new IngestionScheduler(
       ingestion as unknown as IngestionService,
@@ -45,6 +47,7 @@ describe('IngestionScheduler', () => {
 
     expect(ingestion.collectProMatches).toHaveBeenCalledTimes(1);
     expect(ingestion.collectPublicMatches).toHaveBeenCalledTimes(1);
+    expect(ingestion.refreshStats).toHaveBeenCalledTimes(1);
   });
 
   it('runs each job at its interval', async () => {
@@ -55,11 +58,13 @@ describe('IngestionScheduler', () => {
       'pro-matches',
       'public-matches',
       'match-details',
+      'stats',
     ]);
     // first run + one per interval
     expect(ingestion.collectProMatches).toHaveBeenCalledTimes(2);
     expect(ingestion.collectPublicMatches).toHaveBeenCalledTimes(4);
     expect(ingestion.fetchDetails).toHaveBeenCalledTimes(15);
+    expect(ingestion.refreshStats).toHaveBeenCalledTimes(2);
   });
 
   it('logs only the details runs that saved matches', async () => {

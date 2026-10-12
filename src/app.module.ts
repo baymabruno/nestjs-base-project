@@ -12,6 +12,7 @@ import { AllExceptionsFilter } from './filters/all-exceptions.filter.js';
 import { HealthModule } from './health/health.module.js';
 import { ObserveModule, isObserveEnabled } from './observe.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { StatsModule } from './stats/stats.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
@@ -45,6 +46,7 @@ import { UsersModule } from './users/users.module.js';
     AuthModule,
     UsersModule,
     HealthModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [

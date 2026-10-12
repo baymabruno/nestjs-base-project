@@ -19,6 +19,7 @@ import {
   OpenDotaRateLimitError,
 } from '../opendota/opendota.client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { StatsService } from '../stats/stats.service.js';
 import { IngestionService } from './ingestion.service.js';
 
 const settings = {
@@ -53,6 +54,7 @@ describe('IngestionService', () => {
       client,
       gameData,
       new MatchesService(prisma, gameData),
+      new StatsService(prisma),
       new ConfigService(settings) as ConfigService<Env, true>,
     );
     return { service, gameData };
@@ -157,6 +159,17 @@ describe('IngestionService', () => {
     await service.collectPublicMatches();
 
     expect(await service.deleteExpiredMatches(new Date(NOW * 1000))).toBe(1);
+  });
+
+  it('rebuilds the statistics of the current patch', async () => {
+    const { service } = createService({
+      getPublicMatches: async () => [publicMatch()],
+    });
+    await service.collectPublicMatches();
+
+    await service.refreshStats();
+
+    expect(await prisma.heroStat.count({ where: { patchId: 60 } })).toBe(10);
   });
 
   it('syncs the game data', async () => {

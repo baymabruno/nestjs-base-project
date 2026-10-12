@@ -40,11 +40,16 @@ export class IngestionScheduler implements OnApplicationBootstrap {
       () => this.collectPublicMatches(),
     );
     every('match-details', 1, () => this.fetchDetails());
+    every(
+      'stats',
+      this.config.get('STATS_INTERVAL_MINUTES', { infer: true }),
+      () => this.ingestion.refreshStats(),
+    );
 
     // first run right away, instead of waiting for the intervals
-    void this.run('pro-matches', () => this.collectProMatches()).then(() =>
-      this.run('public-matches', () => this.collectPublicMatches()),
-    );
+    void this.run('pro-matches', () => this.collectProMatches())
+      .then(() => this.run('public-matches', () => this.collectPublicMatches()))
+      .then(() => this.run('stats', () => this.ingestion.refreshStats()));
   }
 
   // new heroes, items and patches

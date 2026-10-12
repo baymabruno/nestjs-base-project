@@ -116,3 +116,33 @@ model MatchPlayer {
   @@map("match_players")
 }
 
+// ---- statistics of the current patch (rebuilt by the worker) ----
+
+model HeroStat {
+  patchId   Int         @map("patch_id") @db.SmallInt
+  source    MatchSource
+  heroId    Int         @map("hero_id") @db.SmallInt
+  matches   Int
+  wins      Int
+  updatedAt DateTime    @map("updated_at") @db.Timestamptz
+
+  @@id([patchId, source, heroId])
+  @@map("hero_stats")
+}
+
+// items in the final inventory of a hero
+model HeroItemStat {
+  patchId           Int         @map("patch_id") @db.SmallInt
+  source            MatchSource
+  heroId            Int         @map("hero_id") @db.SmallInt
+  itemId            Int         @map("item_id") @db.SmallInt
+  matches           Int
+  wins              Int
+  // first purchase time (parsed matches): sum and count, so the average can
+  // combine sources
+  purchaseTimeSum   BigInt      @map("purchase_time_sum")
+  purchaseTimeCount Int         @map("purchase_time_count")
+
+  @@id([patchId, source, heroId, itemId])
+  @@map("hero_item_stats")
+}

@@ -1,0 +1,70 @@
+import { NestExpressApplication } from '@nestjs/platform-express';
+import request from 'supertest';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import { createTestApp } from './support/app.js';
+import { resetDatabase } from './support/database.js';
+import { seedStats } from './support/seed.js';
+
+// statistics routes, read from a database with known matches
+describe('Stats (e2e)', () => {
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const prisma = app.get(PrismaService);
+    await resetDatabase(prisma);
+    await seedStats(prisma);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('/api/v1/meta (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/meta')
+      .expect(200)
+      .expect((res) =>
+        expect(res.body).toMatchObject({
+          patch: { name: '7.41' },
+          matches: { pro: 1, public: 2 },
+        }),
+      );
+  });
+
+  it('/api/v1/heroes (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/heroes?source=public&minMatches=2')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.patch.name).toBe('7.41');
+        expect(res.body.heroes[0]).toMatchObject({
+          id: 1,
+          matches: 2,
+          winRate: 1,
+        });
+      });
+  });
+
+  it('/api/v1/heroes/:heroId (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/heroes/1?minItemCost=3000')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.hero.localizedName).toBe('Anti-Mage');
+        expect(res.body.items).toEqual([
+          expect.objectContaining({ name: 'bfury', avgPurchaseTime: 600 }),
+        ]);
+      });
+  });
+
+  it('rejects invalid filters', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/heroes?source=ranked')
+      .expect(400);
+  });
+
+  it('returns 404 for an unknown hero', () => {
+    return request(app.getHttpServer()).get('/api/v1/heroes/999').expect(404);
+  });
+});

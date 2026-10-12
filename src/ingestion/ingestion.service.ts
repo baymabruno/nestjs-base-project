@@ -8,6 +8,7 @@ import {
   OpenDotaRateLimitError,
 } from '../opendota/opendota.client.js';
 import { PublicMatch } from '../opendota/opendota.schemas.js';
+import { StatsService } from '../stats/stats.service.js';
 
 // public matches kept: ranked lobby, All Pick
 const RANKED_LOBBY = 7;
@@ -30,6 +31,7 @@ export class IngestionService {
     private readonly openDota: OpenDotaClient,
     private readonly gameData: GameDataService,
     private readonly matches: MatchesService,
+    private readonly stats: StatsService,
     config: ConfigService<Env, true>,
   ) {
     this.minRankTier = config.get('PUBLIC_MIN_RANK_TIER', { infer: true });
@@ -84,6 +86,12 @@ export class IngestionService {
       }
     }
     return saved;
+  }
+
+  /** Rebuilds the statistics of the current patch */
+  async refreshStats(): Promise<void> {
+    await this.ensureGameData();
+    await this.stats.refresh(this.gameData.currentPatch().id);
   }
 
   /** Deletes the matches older than MATCH_RETENTION_DAYS */

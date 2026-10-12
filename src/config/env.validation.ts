@@ -85,6 +85,8 @@ export const envSchema = z
       .default(5),
     // minimum average rank of the public matches (tens: 7 Divine, 8 Immortal)
     PUBLIC_MIN_RANK_TIER: z.coerce.number().int().min(10).max(80).default(70),
+    // minutes between the statistics updates
+    STATS_INTERVAL_MINUTES: z.coerce.number().int().positive().default(15),
     // match details requested per minute, at most
     DETAILS_PER_MINUTE: z.coerce.number().int().positive().default(30),
     // daily OpenDota requests kept for the match lists

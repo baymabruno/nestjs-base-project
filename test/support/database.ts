@@ -13,5 +13,5 @@ export const createTestPrisma = () =>
 /** Removes every row, so each test starts from an empty database */
 export const resetDatabase = (prisma: PrismaService) =>
   prisma.$executeRawUnsafe(
-    'TRUNCATE match_players, matches, heroes, items, patches',
+    'TRUNCATE match_players, matches, heroes, items, patches, hero_stats, hero_item_stats',
   );
