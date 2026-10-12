@@ -33,7 +33,7 @@ describe('HeroService', () => {
     const gameData = new GameDataService(prisma, fakeOpenDota());
     await gameData.sync();
     matches = new MatchesService(prisma, gameData);
-    refresh = () => new StatsService(prisma).refresh(60);
+    refresh = () => new StatsService(prisma).refresh(60, new Date(0));
   });
 
   afterAll(async () => {

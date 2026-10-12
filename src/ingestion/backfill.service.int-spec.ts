@@ -19,11 +19,7 @@ import {
 } from '../opendota/opendota.client.js';
 import { ProMatch, PublicMatch } from '../opendota/opendota.schemas.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import {
-  BackfillService,
-  DEFAULT_BACKFILL_DAYS,
-  parseBackfillDays,
-} from './backfill.service.js';
+import { BackfillService } from './backfill.service.js';
 
 const DAY = 86400;
 const now = new Date(NOW * 1000);
@@ -39,34 +35,15 @@ const pager = <T extends { match_id: number }>(
       .slice(0, pageSize),
   );
 
-// match n started n days ago; the newest has the highest id
-const proDays = (days: number) =>
+// match n started n * step days ago; the newest has the highest id
+const proDays = (days: number, step = 1) =>
   Array.from({ length: days }, (_, n) =>
-    proMatch({ match_id: 1000 - n, start_time: NOW - n * DAY - 60 }),
+    proMatch({ match_id: 1000 - n, start_time: NOW - n * step * DAY - 60 }),
   );
 const publicDays = (days: number) =>
   Array.from({ length: days }, (_, n) =>
     publicMatch({ match_id: 5000 - n, start_time: NOW - n * DAY - 60 }),
   );
-
-describe('parseBackfillDays', () => {
-  it('uses 1 day by default', () => {
-    expect(parseBackfillDays(undefined, 30)).toBe(DEFAULT_BACKFILL_DAYS);
-    expect(parseBackfillDays('', 30)).toBe(1);
-  });
-
-  it('accepts a number of days up to the retention', () => {
-    expect(parseBackfillDays('30', 30)).toBe(30);
-  });
-
-  it.each(['0', '-1', '2.5', 'abc'])('rejects "%s"', (value) => {
-    expect(() => parseBackfillDays(value, 30)).toThrow('Invalid number');
-  });
-
-  it('rejects more days than the retention', () => {
-    expect(() => parseBackfillDays('31', 30)).toThrow('MATCH_RETENTION_DAYS');
-  });
-});
 
 describe('BackfillService', () => {
   let prisma: PrismaService;
@@ -83,7 +60,8 @@ describe('BackfillService', () => {
     await prisma.$disconnect();
   });
 
-  const createService = (client: Partial<OpenDotaClient>) => {
+  // the window in days, as the matches of the tests are one per day
+  const createService = (client: Partial<OpenDotaClient>, windowDays = 7) => {
     const openDota = fakeOpenDota({
       remainingDailyRequests: 2000,
       getProMatches: pager<ProMatch>([], 100),
@@ -99,6 +77,7 @@ describe('BackfillService', () => {
       new ConfigService({
         PUBLIC_MIN_RANK_TIER: 70,
         OPENDOTA_DAILY_RESERVE: 100,
+        PUBLIC_WINDOW_HOURS: windowDays * 24,
       }) as ConfigService<Env, true>,
     );
     // no real waiting in the tests
@@ -118,11 +97,12 @@ describe('BackfillService', () => {
   const count = (source: MatchSource) =>
     prisma.match.count({ where: { source } });
 
-  it('loads the pro matches of the period, page by page', async () => {
-    const getProMatches = pager(proDays(20), 3);
-    const { service } = createService({ getProMatches });
+  it('loads the pro matches of the current patch, page by page', async () => {
+    // one match every 30 days: 7 of them since the patch (192 days before NOW)
+    const getProMatches = pager(proDays(10, 30), 3);
+    const { service } = createService({ getProMatches }, 1);
 
-    const { pro } = await service.run(7, now);
+    const { pro } = await service.run(now);
 
     expect(pro).toMatchObject({ added: 7, pages: 3, complete: true });
     expect(await count(MatchSource.PRO)).toBe(7);
@@ -135,7 +115,7 @@ describe('BackfillService', () => {
       getProMatches: pager(proDays(4), 3),
     });
 
-    const { pro } = await service.run(7, now);
+    const { pro } = await service.run(now);
 
     expect(pro).toMatchObject({ added: 4, pages: 2, complete: true });
   });
@@ -144,9 +124,9 @@ describe('BackfillService', () => {
     const matches = publicDays(10);
     matches[1] = { ...matches[1], avg_rank_tier: 50 };
     const getPublicMatches = publicPager(matches, 4);
-    const { service } = createService({ getPublicMatches });
+    const { service } = createService({ getPublicMatches }, 5);
 
-    const result = await service.run(5, now);
+    const result = await service.run(now);
 
     // 5 days, one of them below the minimum rank
     expect(result.public).toMatchObject({ added: 4, complete: true });
@@ -158,7 +138,7 @@ describe('BackfillService', () => {
 
   it('continues from the oldest public match stored', async () => {
     const getPublicMatches = publicPager(publicDays(10), 100);
-    const { service } = createService({ getPublicMatches });
+    const { service } = createService({ getPublicMatches }, 5);
     const gameData = new GameDataService(prisma, fakeOpenDota());
     await gameData.sync();
     // stored 2 days ago (the worker stores the newer ones)
@@ -166,7 +146,7 @@ describe('BackfillService', () => {
       publicDays(3)[2],
     ]);
 
-    const result = await service.run(5, now);
+    const result = await service.run(now);
 
     expect(getPublicMatches).toHaveBeenCalledWith({
       minRank: 70,
@@ -179,11 +159,12 @@ describe('BackfillService', () => {
 
   it('skips the public matches when the period is already loaded', async () => {
     const getPublicMatches = publicPager(publicDays(10), 100);
-    const { service } = createService({ getPublicMatches });
-    await service.run(5, now);
+    await createService({ getPublicMatches }, 5).service.run(now);
     getPublicMatches.mockClear();
 
-    const result = await service.run(3, now);
+    const result = await createService({ getPublicMatches }, 3).service.run(
+      now,
+    );
 
     expect(result.public).toMatchObject({ pages: 0, complete: true });
     expect(getPublicMatches).not.toHaveBeenCalled();
@@ -193,17 +174,20 @@ describe('BackfillService', () => {
     // each page costs one request: 1100 left, reserve 100 -> stops at 600
     let remaining = 1100;
     const page = pager(publicDays(30), 1);
-    const { service, openDota } = createService({
-      getPublicMatches: vi.fn(async ({ lessThanMatchId }) => {
-        remaining -= 100;
-        return page(lessThanMatchId);
-      }),
-    } as Partial<OpenDotaClient>);
+    const { service, openDota } = createService(
+      {
+        getPublicMatches: vi.fn(async ({ lessThanMatchId }) => {
+          remaining -= 100;
+          return page(lessThanMatchId);
+        }),
+      } as Partial<OpenDotaClient>,
+      30,
+    );
     Object.defineProperty(openDota, 'remainingDailyRequests', {
       get: () => remaining,
     });
 
-    const result = await service.run(30, now);
+    const result = await service.run(now);
 
     expect(result.public).toMatchObject({ pages: 5, complete: false });
     expect(remaining).toBe(600);
@@ -216,7 +200,7 @@ describe('BackfillService', () => {
       getProMatches,
     } as Partial<OpenDotaClient>);
 
-    const { pro } = await service.run(7, now);
+    const { pro } = await service.run(now);
 
     expect(pro).toMatchObject({ pages: 0, complete: false });
     expect(getProMatches).not.toHaveBeenCalled();
@@ -229,7 +213,7 @@ describe('BackfillService', () => {
       .mockResolvedValue([]);
     const { service } = createService({ getProMatches });
 
-    const { pro } = await service.run(7, now);
+    const { pro } = await service.run(now);
 
     expect(getProMatches).toHaveBeenCalledTimes(2);
     expect(pro.complete).toBe(true);
@@ -240,7 +224,7 @@ describe('BackfillService', () => {
       getProMatches: vi.fn().mockRejectedValue(new OpenDotaRateLimitError()),
     });
 
-    const { pro } = await service.run(7, now);
+    const { pro } = await service.run(now);
 
     expect(pro.complete).toBe(false);
   });
@@ -250,7 +234,7 @@ describe('BackfillService', () => {
       getProMatches: vi.fn().mockRejectedValue(new Error('offline')),
     });
 
-    await expect(service.run(7, now)).rejects.toThrow('offline');
+    await expect(service.run(now)).rejects.toThrow('offline');
   });
 
   it('rethrows other errors on the retry', async () => {
@@ -261,6 +245,6 @@ describe('BackfillService', () => {
         .mockRejectedValue(new Error('offline')),
     });
 
-    await expect(service.run(7, now)).rejects.toThrow('offline');
+    await expect(service.run(now)).rejects.toThrow('offline');
   });
 });

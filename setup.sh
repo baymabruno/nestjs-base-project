@@ -14,10 +14,11 @@
 #
 # The environment defaults to "dev".
 #
-# Usage: ./setup.sh backfill [days] [dev|prod]
+# Usage: ./setup.sh backfill [dev|prod]
 #
-#   backfill  loads the pro and public matches of the last days (default 1,
-#             up to MATCH_RETENTION_DAYS); the app must be running
+#   backfill  loads the matches not collected yet: public ones of the last
+#             PUBLIC_WINDOW_HOURS and pro ones of the current patch; the app
+#             must be running
 #
 # Usage: ./setup.sh rename <new-name>
 #
@@ -106,16 +107,6 @@ if [ "$COMMAND" = "rename" ]; then
   # defined below; the rename does not depend on the environment
   RENAME_TO="$2"
   ENVIRONMENT="dev"
-fi
-
-# backfill [days] [dev|prod]: the days come before the environment
-if [ "$COMMAND" = "backfill" ]; then
-  if [[ "${2:-}" =~ ^[0-9]+$ ]]; then
-    BACKFILL_DAYS="$2"
-    ENVIRONMENT="${3:-dev}"
-  else
-    BACKFILL_DAYS=""
-  fi
 fi
 
 case "$ENVIRONMENT" in
@@ -435,8 +426,7 @@ backfill() {
     fail "The application is not running. Run: $SETUP_CMD start $ENVIRONMENT"
 
   info "Loading past matches (it can take a few minutes)"
-  # the number of days is validated by the application
-  docker exec "$CONTAINER" node dist/backfill.js ${BACKFILL_DAYS:+"$BACKFILL_DAYS"}
+  docker exec "$CONTAINER" node dist/backfill.js
 }
 
 case "$COMMAND" in

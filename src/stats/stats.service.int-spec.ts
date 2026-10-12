@@ -136,7 +136,7 @@ describe('StatsService', () => {
     });
 
     it('keeps only the statistics of the latest calculation', async () => {
-      await service.refresh(59);
+      await service.refresh(59, new Date(0));
 
       expect(await prisma.heroStat.count()).toBe(0);
       expect(await prisma.heroItemStat.count()).toBe(0);

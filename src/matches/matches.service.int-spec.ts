@@ -113,6 +113,31 @@ describe('MatchesService', () => {
       });
     });
 
+    it('returns only the matches started since the date', async () => {
+      await service.addProMatches([
+        proMatch({ match_id: 3, start_time: 1_791_000_000 }),
+        proMatch({ match_id: 4, start_time: 1_790_000_000 }),
+      ]);
+
+      const pending = await service.findPendingDetails(10, {
+        since: new Date(1_790_500_000 * 1000),
+      });
+
+      expect(pending.map((m) => m.id)).toEqual([3]);
+    });
+
+    it('returns only the matches of a source', async () => {
+      await service.addPublicMatches([publicMatch({ match_id: 1 })]);
+      await service.addProMatches([proMatch({ match_id: 3 })]);
+
+      const pending = await service.findPendingDetails(10, {
+        source: MatchSource.PUBLIC,
+      });
+
+      expect(pending.map((m) => m.id)).toEqual([1]);
+      expect(await service.findPendingDetails(0)).toEqual([]);
+    });
+
     it('respects the limit and the retry time', async () => {
       await service.addProMatches([
         proMatch({ match_id: 3 }),
@@ -149,6 +174,9 @@ describe('MatchesService', () => {
         // the unknown item is left out
         purchaseItems: [44, 145, 1],
         purchaseTimes: [-89, 600, 1200],
+        abilityUpgrades: [
+          5003, 5004, 5003, 5004, 5003, 5004, 5003, 5004, 5003, 6001, 5004,
+        ],
       });
       expect(stored[5].win).toBe(true);
       expect(
@@ -238,13 +266,36 @@ describe('MatchesService', () => {
         publicMatch({ match_id: 2, start_time: 1_791_000_000 }),
       ]);
 
-      const deleted = await service.deleteStartedBefore(
-        new Date(1_790_500_000 * 1000),
-      );
+      const deleted = await service.deleteStartedBefore({
+        publicBefore: new Date(1_790_500_000 * 1000),
+        proBefore: new Date(0),
+      });
 
       expect(deleted).toBe(1);
       expect(await prisma.match.count()).toBe(1);
       expect(await prisma.matchPlayer.count()).toBe(10);
+    });
+
+    it('uses a different date for each source', async () => {
+      await service.addPublicMatches([
+        publicMatch({ match_id: 1, start_time: 1_790_000_000 }),
+      ]);
+      await service.addProMatches([
+        proMatch({ match_id: 3, start_time: 1_790_000_000 }),
+        proMatch({ match_id: 4, start_time: 1_780_000_000 }),
+      ]);
+
+      const deleted = await service.deleteStartedBefore({
+        publicBefore: new Date(1_790_500_000 * 1000),
+        proBefore: new Date(1_785_000_000 * 1000),
+      });
+
+      expect(deleted).toBe(2);
+      expect(
+        (await prisma.match.findMany({ select: { id: true } })).map((m) =>
+          Number(m.id),
+        ),
+      ).toEqual([3]);
     });
   });
 });

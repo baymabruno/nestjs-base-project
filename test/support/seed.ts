@@ -27,5 +27,8 @@ export async function seedStats(prisma: PrismaService) {
   const [pro] = await matches.findPendingDetails(1);
   await matches.saveDetails(pro, matchDetails(3, { radiantWin: false }));
 
-  await new StatsService(prisma).refresh(gameData.currentPatch().id);
+  await new StatsService(prisma).refresh(
+    gameData.currentPatch().id,
+    new Date(0),
+  );
 }

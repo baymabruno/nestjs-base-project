@@ -50,17 +50,19 @@ export class IngestionScheduler implements OnApplicationBootstrap {
       every(
         'stratz',
         this.config.get('STRATZ_INTERVAL_HOURS', { infer: true }) * 60,
-        () => this.syncPositionStats(),
+        () => this.syncStratzStats(),
       );
-      void this.run('stratz', () => this.syncPositionStats());
+      void this.run('stratz', () => this.syncStratzStats());
     } else {
       this.logger.warn(
-        'STRATZ_API_TOKEN is not set: the statistics by role are not collected',
+        'STRATZ_API_TOKEN is not set: the statistics by role and the talents are not collected',
       );
     }
 
-    // first run right away, instead of waiting for the intervals
-    void this.run('pro-matches', () => this.collectProMatches())
+    // first run right away, instead of waiting for the intervals; the
+    // cleanup first, so a restart also removes what left the window
+    void this.deleteExpiredMatches()
+      .then(() => this.run('pro-matches', () => this.collectProMatches()))
       .then(() => this.run('public-matches', () => this.collectPublicMatches()))
       .then(() => this.run('stats', () => this.ingestion.refreshStats()));
   }
@@ -71,7 +73,8 @@ export class IngestionScheduler implements OnApplicationBootstrap {
     return this.run('game-data', () => this.ingestion.syncGameData());
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_4AM)
+  // public matches that left the window and pro matches of older patches
+  @Cron(CronExpression.EVERY_HOUR)
   deleteExpiredMatches() {
     return this.run('retention', async () => {
       const deleted = await this.ingestion.deleteExpiredMatches();
@@ -105,9 +108,12 @@ export class IngestionScheduler implements OnApplicationBootstrap {
     this.logger.log(`Public matches: ${added} new`);
   }
 
-  private async syncPositionStats() {
-    const rows = await this.ingestion.syncPositionStats();
-    this.logger.log(`Statistics by role (STRATZ): ${rows} rows`);
+  private async syncStratzStats() {
+    const { positions, talents, items } =
+      await this.ingestion.syncStratzStats();
+    this.logger.log(
+      `STRATZ statistics: ${positions} rows by role, ${talents} talents, ${items} items`,
+    );
   }
 
   private async fetchDetails() {

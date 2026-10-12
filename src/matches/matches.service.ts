@@ -102,12 +102,21 @@ export class MatchesService {
     return count;
   }
 
-  /** Matches waiting for their details: pro first, then the newest */
-  async findPendingDetails(limit: number): Promise<PendingMatch[]> {
+  /**
+   * Matches waiting for their details: pro first, then the newest; only the
+   * ones started since the date, when given
+   */
+  async findPendingDetails(
+    limit: number,
+    { source, since }: { source?: MatchSource; since?: Date } = {},
+  ): Promise<PendingMatch[]> {
+    if (limit <= 0) return [];
     const matches = await this.prisma.match.findMany({
       where: {
         detailsStatus: DetailsStatus.PENDING,
         detailsAfter: { lte: new Date() },
+        ...(source && { source }),
+        ...(since && { startTime: { gte: since } }),
       },
       orderBy: [{ source: 'asc' }, { startTime: 'desc' }],
       select: { id: true, source: true, detailsAttempts: true },
@@ -161,6 +170,7 @@ export class MatchesService {
           neutralItemId: player.item_neutral || null,
           purchaseItems: purchases.map((purchase) => purchase.itemId),
           purchaseTimes: purchases.map((purchase) => purchase.time),
+          abilityUpgrades: player.ability_upgrades_arr ?? [],
         };
       },
     );
@@ -200,9 +210,20 @@ export class MatchesService {
   }
 
   /** Deletes the matches (and their players) that started before the date */
-  async deleteStartedBefore(date: Date): Promise<number> {
+  async deleteStartedBefore({
+    publicBefore,
+    proBefore,
+  }: {
+    publicBefore: Date;
+    proBefore: Date;
+  }): Promise<number> {
     const { count } = await this.prisma.match.deleteMany({
-      where: { startTime: { lt: date } },
+      where: {
+        OR: [
+          { source: MatchSource.PUBLIC, startTime: { lt: publicBefore } },
+          { source: MatchSource.PRO, startTime: { lt: proBefore } },
+        ],
+      },
     });
     return count;
   }

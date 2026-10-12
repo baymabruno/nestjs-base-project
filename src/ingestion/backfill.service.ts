@@ -9,9 +9,8 @@ import {
   OpenDotaRateLimitError,
 } from '../opendota/opendota.client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { DAY_MS, isWantedPublicMatch } from './ingestion.service.js';
+import { HOUR_MS, isWantedPublicMatch } from './ingestion.service.js';
 
-export const DEFAULT_BACKFILL_DAYS = 1;
 // pause between pages, so the backfill and the worker together stay under
 // the per-minute limit
 export const PAGE_PAUSE_MS = 1000;
@@ -37,30 +36,12 @@ interface ListedMatch {
 }
 
 /**
- * Validates the number of days to load: a positive integer up to the
- * retention (older matches would be deleted by the next retention run).
- */
-export function parseBackfillDays(
-  value: string | undefined,
-  retentionDays: number,
-): number {
-  if (value === undefined || value === '') return DEFAULT_BACKFILL_DAYS;
-  const days = Number(value);
-  if (!Number.isInteger(days) || days < 1) {
-    throw new Error(`Invalid number of days: "${value}"`);
-  }
-  if (days > retentionDays) {
-    throw new Error(
-      `${days} days is more than MATCH_RETENTION_DAYS (${retentionDays}): the older matches would be deleted`,
-    );
-  }
-  return days;
-}
-
-/**
- * Loads past matches, going back page by page (less_than_match_id):
- * - pro matches from the newest one, which also fills any gap;
- * - public matches from the oldest one stored, so a new run continues where
+ * Loads the matches that the worker did not collect, going back page by page
+ * (less_than_match_id), with the periods of the statistics:
+ * - pro matches of the current patch, from the newest one, which also fills
+ *   any gap;
+ * - public matches of the window (PUBLIC_WINDOW_HOURS), from the oldest one
+ *   stored, so a new run continues where
  *   the previous one stopped. They use at most half of the requests left
  *   today, so the worker keeps fetching match details.
  * The details of the new matches are fetched by the worker, as usual.
@@ -70,6 +51,7 @@ export class BackfillService {
   private readonly logger = new Logger(BackfillService.name);
   private readonly minRankTier: number;
   private readonly dailyReserve: number;
+  private readonly publicWindowHours: number;
 
   constructor(
     private readonly openDota: OpenDotaClient,
@@ -80,15 +62,18 @@ export class BackfillService {
   ) {
     this.minRankTier = config.get('PUBLIC_MIN_RANK_TIER', { infer: true });
     this.dailyReserve = config.get('OPENDOTA_DAILY_RESERVE', { infer: true });
+    this.publicWindowHours = config.get('PUBLIC_WINDOW_HOURS', {
+      infer: true,
+    });
   }
 
-  async run(days: number, now = new Date()): Promise<BackfillResult> {
+  async run(now = new Date()): Promise<BackfillResult> {
     if (!this.gameData.isLoaded) await this.gameData.sync();
-    const since = new Date(now.getTime() - days * DAY_MS);
+    const since = new Date(now.getTime() - this.publicWindowHours * HOUR_MS);
 
     const pro = await this.backfill(
       'pro',
-      since,
+      this.gameData.patchAt(now).releasedAt,
       undefined,
       () => this.dailyReserve,
       (lessThan) => this.openDota.getProMatches(lessThan),

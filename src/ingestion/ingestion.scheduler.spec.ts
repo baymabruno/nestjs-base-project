@@ -23,7 +23,7 @@ describe('IngestionScheduler', () => {
       syncGameData: vi.fn().mockResolvedValue(undefined),
       deleteExpiredMatches: vi.fn().mockResolvedValue(4),
       refreshStats: vi.fn().mockResolvedValue(undefined),
-      syncPositionStats: vi.fn().mockResolvedValue(10),
+      syncStratzStats: vi.fn().mockResolvedValue({ positions: 10, talents: 5 }),
       collectsPositionStats: true,
     };
     const config = new ConfigService({
@@ -49,6 +49,7 @@ describe('IngestionScheduler', () => {
     scheduler.onApplicationBootstrap();
     await vi.advanceTimersByTimeAsync(0);
 
+    expect(ingestion.deleteExpiredMatches).toHaveBeenCalledTimes(1);
     expect(ingestion.collectProMatches).toHaveBeenCalledTimes(1);
     expect(ingestion.collectPublicMatches).toHaveBeenCalledTimes(1);
     expect(ingestion.refreshStats).toHaveBeenCalledTimes(1);
@@ -77,7 +78,7 @@ describe('IngestionScheduler', () => {
     await vi.advanceTimersByTimeAsync(6 * 60 * 60 * 1000);
 
     // first run + one after 6 hours
-    expect(ingestion.syncPositionStats).toHaveBeenCalledTimes(2);
+    expect(ingestion.syncStratzStats).toHaveBeenCalledTimes(2);
   });
 
   it('does not collect the statistics by role without STRATZ', async () => {
@@ -88,7 +89,7 @@ describe('IngestionScheduler', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(registry.getIntervals()).not.toContain('stratz');
-    expect(ingestion.syncPositionStats).not.toHaveBeenCalled();
+    expect(ingestion.syncStratzStats).not.toHaveBeenCalled();
     expect(Logger.prototype.warn).toHaveBeenCalledWith(
       expect.stringContaining('STRATZ_API_TOKEN'),
     );

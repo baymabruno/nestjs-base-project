@@ -7,11 +7,11 @@ import { Env } from './config/env.validation.js';
 import {
   BackfillProgress,
   BackfillService,
-  parseBackfillDays,
 } from './ingestion/backfill.service.js';
 
-// Loads the matches of the last days: node dist/backfill.js [days]
-// (./setup.sh backfill [days]); 1 day when omitted
+// Loads the matches the worker did not collect: the public ones of the last
+// PUBLIC_WINDOW_HOURS and the pro ones of the current patch
+// (node dist/backfill.js, or ./setup.sh backfill)
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(BackfillModule, {
     bufferLogs: true,
@@ -26,13 +26,11 @@ async function bootstrap() {
     (progress.complete ? '' : ' (incomplete: run again later)');
 
   try {
-    const days = parseBackfillDays(
-      process.argv[2],
-      config.get('MATCH_RETENTION_DAYS', { infer: true }),
+    logger.log(
+      `Loading the public matches of the last ${config.get('PUBLIC_WINDOW_HOURS', { infer: true })} hours and the pro matches of the current patch`,
     );
-    logger.log(`Loading the matches of the last ${days} days`);
 
-    const result = await app.get(BackfillService).run(days);
+    const result = await app.get(BackfillService).run();
 
     logger.log(describe('Pro', result.pro));
     logger.log(describe('Public', result.public));

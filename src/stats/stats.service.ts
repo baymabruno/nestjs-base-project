@@ -30,21 +30,23 @@ export class StatsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Replaces the statistics with the ones of the patch; the other patches
-   * are removed, so only the current meta is kept.
+   * Replaces the statistics with the matches of the patch: every pro match
+   * (there are few of them) and the public matches started since the date
+   * (the window). The rest is removed, so only the current meta counts.
    */
-  async refresh(patchId: number): Promise<void> {
+  async refresh(patchId: number, publicSince: Date): Promise<void> {
     await this.prisma.$transaction([
       this.prisma.heroStat.deleteMany(),
       this.prisma.heroItemStat.deleteMany(),
       this.prisma.heroDailyStat.deleteMany(),
       this.prisma.heroMatchupStat.deleteMany(),
       this.prisma.heroItemTimingStat.deleteMany(),
+      this.prisma.heroSkillBuildStat.deleteMany(),
       this.prisma.$executeRaw`
         INSERT INTO hero_stats (patch_id, source, hero_id, matches, wins, updated_at)
         SELECT patch_id, source, hero_id, count(*), count(*) FILTER (WHERE win), now()
         FROM match_players
-        WHERE patch_id = ${patchId}
+        WHERE patch_id = ${patchId} AND (source = 'PRO' OR start_time >= ${publicSince})
         GROUP BY patch_id, source, hero_id`,
       // each item once per player (two of the same item count once), with
       // the time of its first purchase when the match was parsed
@@ -58,7 +60,7 @@ export class StatsService {
         CROSS JOIN LATERAL (
           SELECT p.purchase_times[array_position(p.purchase_items, i.item_id)] AS time
         ) t
-        WHERE p.patch_id = ${patchId}
+        WHERE p.patch_id = ${patchId} AND (p.source = 'PRO' OR p.start_time >= ${publicSince})
         GROUP BY p.patch_id, p.source, p.hero_id, i.item_id`,
       // per day, rank (tens of the average rank tier; pro matches have none)
       // and duration: under 35 minutes, 35 to 50, 50 or more
@@ -71,7 +73,7 @@ export class StatsService {
           p.hero_id, count(*), count(*) FILTER (WHERE p.win)
         FROM match_players p
         JOIN matches m ON m.id = p.match_id
-        WHERE p.patch_id = ${patchId}
+        WHERE p.patch_id = ${patchId} AND (p.source = 'PRO' OR p.start_time >= ${publicSince})
         GROUP BY 1, 2, 3, 4, 5, 6`,
       // each player with the other 9 of the match (slots under 128: radiant)
       this.prisma.$executeRaw`
@@ -83,7 +85,7 @@ export class StatsService {
         FROM match_players a
         JOIN match_players b ON b.match_id = a.match_id
           AND b.player_slot <> a.player_slot
-        WHERE a.patch_id = ${patchId}
+        WHERE a.patch_id = ${patchId} AND (a.source = 'PRO' OR a.start_time >= ${publicSince})
         GROUP BY 1, 2, 3, 4, 5`,
       // first purchase of each item: before the horn (0) or 5 minute windows
       this.prisma.$executeRaw`
@@ -98,8 +100,17 @@ export class StatsService {
           FROM unnest(p.purchase_items, p.purchase_times) AS u(item_id, time)
           GROUP BY u.item_id
         ) f
-        WHERE p.patch_id = ${patchId} AND cardinality(p.purchase_items) > 0
+        WHERE p.patch_id = ${patchId} AND (p.source = 'PRO' OR p.start_time >= ${publicSince}) AND cardinality(p.purchase_items) > 0
         GROUP BY 1, 2, 3, 4, 5`,
+      // abilities of the first 10 levels, in order (the build)
+      this.prisma.$executeRaw`
+        INSERT INTO hero_skill_build_stats (patch_id, source, hero_id, build,
+          matches, wins)
+        SELECT patch_id, source, hero_id, array_to_string(ability_upgrades[1:10], ','),
+          count(*), count(*) FILTER (WHERE win)
+        FROM match_players
+        WHERE patch_id = ${patchId} AND (source = 'PRO' OR start_time >= ${publicSince}) AND cardinality(ability_upgrades) >= 10
+        GROUP BY 1, 2, 3, 4`,
     ]);
   }
 

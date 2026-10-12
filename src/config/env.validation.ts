@@ -79,8 +79,9 @@ export const envSchema = z
       .transform((value) => value || undefined),
     // hours between the requests for the statistics by role
     STRATZ_INTERVAL_HOURS: z.coerce.number().int().positive().default(6),
-    // match collection (worker): days of matches kept in the database
-    MATCH_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+    // window of the public matches: those of the last hours count, and the
+    // older ones are deleted every hour (pro matches: the whole current patch)
+    PUBLIC_WINDOW_HOURS: z.coerce.number().int().min(1).max(168).default(24),
     // minutes between the requests for the latest pro and public matches
     PRO_MATCHES_INTERVAL_MINUTES: z.coerce
       .number()
