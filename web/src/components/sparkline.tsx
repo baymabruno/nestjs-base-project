@@ -1,11 +1,16 @@
 import type { MetaHero } from "@/lib/api";
 import { percent, shortDay } from "@/lib/format";
 
-const WIDTH = 72;
-const HEIGHT = 22;
-
 /** Daily win rate of the period; days without matches are left out */
-export function Sparkline({ daily }: { daily: MetaHero["daily"] }) {
+export function Sparkline({
+  daily,
+  width: WIDTH = 72,
+  height: HEIGHT = 22,
+}: {
+  daily: MetaHero["daily"];
+  width?: number;
+  height?: number;
+}) {
   const points = daily
     .map((day, index) => ({ ...day, index }))
     .filter((day) => day.winRate !== null);

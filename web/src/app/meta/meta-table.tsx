@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { DurationStats, MetaHero } from "@/lib/api";
-import { heroImage, integer, percent, points } from "@/lib/format";
-import { Sparkline } from "./sparkline";
+import { heroImage, heroSlug, integer, percent, points } from "@/lib/format";
+import { Sparkline } from "@/components/sparkline";
 
 type SortKey =
   | "hero"
@@ -124,7 +125,7 @@ export function MetaTable({ heroes }: { heroes: MetaHero[] }) {
             <tr key={hero.id}>
               <td className="rank">{index + 1}</td>
               <td className="text-left">
-                <div className="hero-cell">
+                <Link href={`/heroes/${heroSlug(hero.name)}`} className="hero-cell">
                   <Image
                     src={heroImage(hero.name)}
                     alt=""
@@ -132,7 +133,7 @@ export function MetaTable({ heroes }: { heroes: MetaHero[] }) {
                     height={27}
                   />
                   {hero.localizedName}
-                </div>
+                </Link>
               </td>
               <td>{integer(hero.matches)}</td>
               <td className={rateClass(hero.winRate)}>{percent(hero.winRate)}</td>

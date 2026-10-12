@@ -164,6 +164,16 @@ O site (`web/`) mostra as estatísticas em páginas. É um projeto Next.js separ
 
 Os filtros (fonte, rank, período e amostra mínima) ficam na URL, então uma visão pode ser compartilhada por link. A API calcula tudo a partir da tabela `hero_daily_stats` (herói × dia × fonte × rank × duração), recalculada pelo worker.
 
+**Página do herói (`/heroes/<nome>`, por exemplo `/heroes/pudge`)**, aberta pelo nome do herói na página de meta, nos moldes das páginas de herói do Dota2ProTracker e dos matchups do STRATZ. Usa os últimos 30 dias do patch, com o filtro de fonte:
+
+| Seção | Cálculo |
+|---|---|
+| Resumo, duração e tendência | Os mesmos números da página de meta, com a posição do herói no meta |
+| Itens iniciais | Itens comprados antes do início da partida na maioria das vezes |
+| Itens finais | Itens a partir de 1.000 de ouro no inventário final: uso (parcela das partidas com os itens conhecidos), win rate e minuto médio da compra |
+| Tempo de compra × win rate | Win rate pelo minuto da primeira compra de cada item, em faixas de 5 minutos (tabela `hero_item_timing_stats`). Só usa as partidas com a ordem de compra, então a amostra é menor |
+| Bom contra, fraco contra e melhores aliados | Win rate do herói contra cada inimigo e com cada aliado, com no mínimo 30 partidas (tabela `hero_matchup_stats`, de todas as partidas). "Bom contra" e os aliados são ordenados pelo limite inferior de Wilson; "fraco contra", pelo limite superior, ou seja, a win rate é baixa mesmo no melhor caso da amostra |
+
 ## Endpoints
 
 As rotas da API ficam sob o prefixo `/api/v1`. A página inicial, o health check, o JWKS e o Swagger ficam fora do prefixo e do versionamento.

@@ -93,3 +93,123 @@ export async function getMetaHeroes(filters: MetaFilters): Promise<MetaHeroes> {
   if (!result) throw new ApiError("Empty answer for /meta/heroes");
   return result;
 }
+
+// ---- hero page ----
+
+export interface HeroListItem {
+  id: number;
+  name: string;
+  localizedName: string;
+}
+
+export interface HeroItem {
+  id: number;
+  name: string;
+  displayName: string | null;
+  cost: number | null;
+  matches: number;
+  wins: number;
+  winRate: number;
+  avgPurchaseTime: number | null;
+}
+
+export interface HeroDetails {
+  hero: { id: number; matches: number };
+  /** matches with the final items known: the base of the item shares */
+  itemMatches?: number;
+  items: HeroItem[];
+}
+
+export interface Matchup {
+  id: number;
+  name: string;
+  localizedName: string;
+  matches: number;
+  wins: number;
+  winRate: number;
+  winRateLow: number;
+  winRateHigh: number;
+  delta: number;
+}
+
+export interface HeroMatchups {
+  hero: { id: number; matches: number; winRate: number };
+  enemies: Matchup[];
+  allies: Matchup[];
+}
+
+export interface ItemTiming {
+  bucket: number;
+  fromMinute: number | null;
+  toMinute: number | null;
+  matches: number;
+  winRate: number;
+}
+
+export interface TimedItem {
+  id: number;
+  name: string;
+  displayName: string | null;
+  cost: number | null;
+  matches: number;
+  wins: number;
+  winRate: number;
+  purchaseRate: number;
+  avgTime: number;
+  timings: ItemTiming[];
+}
+
+export interface HeroItemTimings {
+  matches: number;
+  items: TimedItem[];
+}
+
+const query = (params: Record<string, string | number | undefined>) => {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) search.set(key, String(value));
+  }
+  return search.toString();
+};
+
+async function required<T>(path: string): Promise<T> {
+  const result = await get<T>(path);
+  if (!result) throw new ApiError(`Empty answer for ${path}`);
+  return result;
+}
+
+/** Heroes with matches in the current patch (id and names) */
+export async function getHeroList(): Promise<HeroListItem[]> {
+  const { heroes } = await required<{ heroes: HeroListItem[] }>(
+    "/heroes?minMatches=1",
+  );
+  return heroes;
+}
+
+export function getHeroItems(
+  heroId: number,
+  source?: Source,
+): Promise<HeroDetails> {
+  return required(
+    `/heroes/${heroId}?${query({ source, minMatches: 1, minItemCost: 1000 })}`,
+  );
+}
+
+export function getHeroMatchups(
+  heroId: number,
+  source: Source | undefined,
+  minMatches: number,
+): Promise<HeroMatchups> {
+  return required(
+    `/heroes/${heroId}/matchups?${query({ source, minMatches })}`,
+  );
+}
+
+export function getHeroItemTimings(
+  heroId: number,
+  source?: Source,
+): Promise<HeroItemTimings> {
+  return required(
+    `/heroes/${heroId}/item-timings?${query({ source, minMatches: 1 })}`,
+  );
+}

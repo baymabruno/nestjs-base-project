@@ -309,3 +309,147 @@ tbody tr:hover {
 .legend dd {
   margin: 0 0 10px;
 }
+
+/* ---- hero page ---- */
+
+.breadcrumb {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.hero-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.hero-header img {
+  border-radius: var(--radius);
+}
+
+.hero-header .subtitle {
+  margin: 0;
+}
+
+a.hero-cell {
+  text-decoration: none;
+}
+
+a.hero-cell:hover {
+  color: var(--accent);
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.card {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 0;
+}
+
+.grid-2 + .card,
+.card + .grid-2 {
+  margin-bottom: 16px;
+}
+
+.card h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.card h2:not(:first-child) {
+  margin-top: 16px;
+}
+
+.card .table-wrap {
+  border: 0;
+}
+
+.hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+table.compact th,
+table.compact td {
+  padding: 6px 8px;
+}
+
+.item-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-cell img {
+  border-radius: 3px;
+}
+
+.item-list,
+.matchup-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.matchup-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.matchup-list li:first-child {
+  border-top: 0;
+}
+
+.matchup-list li > span {
+  text-align: right;
+  min-width: 5ch;
+}
+
+.timings {
+  display: flex;
+  gap: 4px;
+}
+
+.timing {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 46px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.timing small {
+  color: var(--muted);
+  font-size: 10px;
+}

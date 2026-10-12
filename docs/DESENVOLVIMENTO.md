@@ -442,6 +442,13 @@ docker-compose --file docker-compose.dev.yml up -d --build -V
 
 **"Property 'match' does not exist on type 'PrismaService'" ou outro erro de tipos do Prisma.** O cliente gerado está desatualizado em relação ao schema. Gere de novo com `npm run prisma:generate` (veja [Banco de dados](#banco-de-dados)).
 
+**O site mostra dados antigos, "NaN" ou "–" depois de uma mudança na API.** O site guarda as respostas da API em cache por 15 minutos, também em desenvolvimento. Para ver a mudança na hora, limpe o cache e reinicie o container do site:
+
+```bash
+docker exec dota-metrics-web rm -rf .next/dev/cache/fetch-cache
+docker restart dota-metrics-web
+```
+
 **O worker não coleta partidas.** Veja os logs (`./setup.sh logs dev`). `OpenDota rate limit reached` indica que a cota diária acabou; a coleta volta sozinha quando a cota renovar.
 
 **A aplicação não sobe e o log mostra "Config validation error".** Alguma variável do `.env` está faltando ou é inválida; a mensagem indica qual. Compare com o `.env.example`.

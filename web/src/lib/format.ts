@@ -1,24 +1,41 @@
 const STEAM_CDN = "https://cdn.cloudflare.steamstatic.com";
 
+/** URL path of a hero page, from the internal name: /heroes/antimage */
+export const heroSlug = (name: string) => name.replace("npc_dota_hero_", "");
+
 /** Hero portrait on the Steam CDN, from the internal name (npc_dota_hero_x) */
 export const heroImage = (name: string) =>
-  `${STEAM_CDN}/apps/dota2/images/dota_react/heroes/${name.replace("npc_dota_hero_", "")}.png`;
+  `${STEAM_CDN}/apps/dota2/images/dota_react/heroes/${heroSlug(name)}.png`;
 
-const decimal = new Intl.NumberFormat("pt-BR", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
+/** Item icon on the Steam CDN; every recipe uses the same image */
+export const itemImage = (name: string) =>
+  `${STEAM_CDN}/apps/dota2/images/dota_react/items/${name.startsWith("recipe_") ? "recipe" : name}.png`;
 
-/** 0.564 -> "56,4%" */
-export const percent = (value: number | null) =>
-  value === null ? "–" : `${decimal.format(value * 100)}%`;
+const decimals = [0, 1].map(
+  (digits) =>
+    new Intl.NumberFormat("pt-BR", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }),
+);
+
+/** 0.564 -> "56,4%" (digits: 0 or 1) */
+export const percent = (value: number | null, digits: 0 | 1 = 1) =>
+  value === null ? "–" : `${decimals[digits].format(value * 100)}%`;
 
 /** Difference in percentage points, with the sign: 0.012 -> "+1,2 p.p." */
 export const points = (value: number) =>
-  `${value > 0 ? "+" : ""}${decimal.format(value * 100)} p.p.`;
+  `${value > 0 ? "+" : ""}${decimals[1].format(value * 100)} p.p.`;
 
 export const integer = (value: number) =>
   new Intl.NumberFormat("pt-BR").format(Math.round(value));
+
+/** Seconds -> "12:30" (negative: before the horn, "-0:45") */
+export const gameTime = (seconds: number) => {
+  const sign = seconds < 0 ? "-" : "";
+  const total = Math.abs(Math.round(seconds));
+  return `${sign}${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+};
 
 /** "2026-10-05" -> "05/10" */
 export const shortDay = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
