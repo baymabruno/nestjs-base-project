@@ -28,6 +28,8 @@ Defina estas variáveis no `.env` do servidor:
   ```bash
   openssl base64 -A -in public.pem
   ```
+- `POSTGRES_PASSWORD` e `DATABASE_URL`: a senha do banco, exclusiva de cada ambiente. O `setup.sh` gera uma senha aleatória ao criar o `.env`. A senha na `DATABASE_URL` precisa ser a mesma de `POSTGRES_PASSWORD`. O banco é criado com essa senha na primeira vez que sobe, então trocá-la depois exige alterar também o usuário no PostgreSQL (`ALTER USER`).
+- `OPENDOTA_API_KEY`: opcional. Sem chave, a coleta fica limitada a 3.000 requisições por dia (veja [Coleta e estatísticas](../README.md#coleta-e-estatísticas)).
 - `CORS_ORIGINS`: as origens do front-end que podem chamar a API, por exemplo `"https://app.example.com,https://admin.example.com"`. Se ficar vazia, qualquer origem é permitida.
 - `JWT_EXPIRES_IN`: mantenha o access token curto (padrão de 15 minutos); o front-end renova a sessão com o refresh token.
 - `TRUST_PROXY`: se a aplicação fica atrás de um proxy reverso ou load balancer (nginx, Traefik, ALB etc.), informe quantos proxies existem na frente dela, por exemplo `"1"`. Sem isso, todas as requisições parecem vir do IP do proxy, e o limite de requisições (inclusive o de 5 logins por minuto) passa a valer para todos os clientes juntos. Só ative quando houver de fato um proxy, porque o cabeçalho `X-Forwarded-For` pode ser forjado por quem acessa a aplicação diretamente.
@@ -44,6 +46,7 @@ Variáveis específicas da produção:
 |---|---|
 | `PM2_INSTANCES` | Número de processos do PM2 (padrão `1`, `max` para um por núcleo de CPU) |
 | `CPU_LIMIT` / `MEMORY_LIMIT` | Limites de CPU e memória do container (padrão `1` CPU e `1g`) |
+| `POSTGRES_CPU_LIMIT` / `POSTGRES_MEMORY_LIMIT` | Limites de CPU e memória do container do PostgreSQL (padrão `1` CPU e `1g`) |
 
 A descrição das variáveis comuns aos ambientes está na seção [Configuração](../README.md#configuração) do README.
 
@@ -55,7 +58,7 @@ A descrição das variáveis comuns aos ambientes está na seção [Configuraç�
 ./setup.sh install prod
 ```
 
-Quando o `.env` não existe, o `install` o cria com um par de chaves RSA novo, `APP_ENVIRONMENT="production"`, `SWAGGER="false"` e `LOG_LEVEL="log"`. Em seguida, gera a imagem, sobe o container e aguarda o `/health` responder. Ele também avisa se `APP_ENVIRONMENT` não for `production` ou se `CORS_ORIGINS` estiver vazio. Revise o `.env` gerado com a seção [Antes do deploy](#antes-do-deploy).
+Quando o `.env` não existe, o `install` o cria com um par de chaves RSA novo, uma senha nova para o banco, `APP_ENVIRONMENT="production"`, `SWAGGER="false"` e `LOG_LEVEL="log"`. Em seguida, gera a imagem, sobe os containers da aplicação e do PostgreSQL e aguarda o `/health` responder. O container da aplicação aplica as migrations pendentes antes de iniciar o PM2. Ele também avisa se `APP_ENVIRONMENT` não for `production` ou se `CORS_ORIGINS` estiver vazio. Revise o `.env` gerado com a seção [Antes do deploy](#antes-do-deploy).
 
 Sem bash ou openssl no servidor, execute o setup em um container (a partir da raiz do projeto):
 
@@ -97,13 +100,13 @@ docker-compose exec node tail -f logs/api.log
 
 | Arquivo | Usado por | O que executa |
 |---|---|---|
-| `ecosystem.config.cjs` | `docker/Dockerfile` (`pm2-runtime start ecosystem.config.cjs`) | `dist/main.js` em modo cluster |
+| `ecosystem.config.cjs` | `docker/Dockerfile` (`pm2-runtime start ecosystem.config.cjs`) | a API (`dist/main.js`) em modo cluster e o worker de coleta (`dist/worker.js`) em um único processo |
 | `docker/pm2-logrotate-install.sh` | `docker/Dockerfile`, na geração da imagem | instala o `pm2-logrotate` e aplica as configurações |
 | `docker/pm2-logrotate-settings.sh` | `pm2-logrotate-install.sh` | configurações do `pm2-logrotate` |
 
 O PM2 é uma dependência do projeto (`package.json`), e não uma instalação global. Assim, os `overrides` do `package.json` forçam versões corrigidas das dependências dele, inclusive dentro do `pm2-logrotate`. Os arquivos do PM2 usam a extensão `.cjs` porque o projeto é ESM.
 
-O número de processos é definido pela variável `PM2_INSTANCES` no `.env` (padrão `1`, ou `max` para um por núcleo de CPU).
+O número de processos da API é definido pela variável `PM2_INSTANCES` no `.env` (padrão `1`, ou `max` para um por núcleo de CPU). O worker sempre roda em um único processo, para a coleta não se repetir.
 
 Ao parar ou reiniciar, o PM2 aguarda até 10 segundos (`kill_timeout`) para a aplicação concluir as requisições em andamento, e o Docker aguarda até 15 segundos (`stop_grace_period`) antes de encerrar o container.
 
@@ -135,6 +138,24 @@ Reiniciar sem downtime:
 
 ```bash
 docker-compose exec node pm2 reload node-backend
+```
+
+## Banco de dados
+
+O PostgreSQL roda no container `dota-metrics-postgres`, sem porta exposta no servidor: só a aplicação acessa o banco, pela rede interna do Docker Compose. Os dados ficam no volume `postgres-data`.
+
+As migrations são aplicadas pelo container da aplicação ao iniciar (`prisma migrate deploy`). Se uma migration falhar, o container não sobe; veja o erro nos logs do Docker (`docker logs dota-metrics`).
+
+O banco guarda os últimos `MATCH_RETENTION_DAYS` dias de partidas, que podem ser coletados de novo do OpenDota. Mesmo assim, para não perder o histórico, faça backups periódicos:
+
+```bash
+docker exec dota-metrics-postgres sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB"' > dota-metrics.dump
+```
+
+Para restaurar:
+
+```bash
+docker exec -i dota-metrics-postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean' < dota-metrics.dump
 ```
 
 ## Atualizando para uma nova versão

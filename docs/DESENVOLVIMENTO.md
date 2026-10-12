@@ -13,7 +13,11 @@ Guia para subir e usar o ambiente de desenvolvimento. Para entender a arquitetur
 ./setup.sh install dev
 ```
 
-O `install` verifica os requisitos, cria o `.env` a partir do `.env.example` (com um par de chaves RSA novo para o JWT) quando ele não existe, gera a imagem, sobe o container e aguarda o `/health` responder. Também copia o `node_modules` do container para a pasta do projeto, para o editor reconhecer as dependências.
+O `install` verifica os requisitos, cria o `.env` a partir do `.env.example` (com um par de chaves RSA novo para o JWT e uma senha nova para o banco) quando ele não existe, gera a imagem, sobe os containers da aplicação e do PostgreSQL e aguarda o `/health` responder. Depois aplica as migrations pendentes e copia o `node_modules` do container para a pasta do projeto, para o editor reconhecer as dependências.
+
+Se o `.env` já existir sem a `DATABASE_URL` (criado antes do banco), o `install` adiciona as credenciais do banco.
+
+O container da aplicação roda dois processos no PM2 (`ecosystem.dev.config.cjs`): a API, que recarrega ao alterar arquivos, e o worker de coleta, que reinicia quando o build da API (`dist`) muda. Veja [Coleta e estatísticas](../README.md#coleta-e-estatísticas) no README.
 
 Se o `.env` já existir sem as chaves do JWT (por exemplo, criado antes da troca para RS256), o `install` gera as chaves e remove a variável antiga `JWT_KEY`.
 
@@ -116,12 +120,14 @@ O `./setup.sh install dev` já faz isso.
 | http://localhost:3000/doc | Swagger (com `SWAGGER="true"`, o padrão em desenvolvimento) |
 | http://localhost:3000/health | Health check |
 | `localhost:9229` | Debugger do Node.js (porta definida em `DEBUG_PORT`) |
+| `localhost:5432` | PostgreSQL, para clientes de banco como DBeaver ou psql (porta definida em `POSTGRES_PORT`; usuário, senha e banco no `.env`) |
 
 A porta da aplicação é a do `PORT` no `.env`. A descrição das variáveis comuns aos ambientes está na seção [Configuração](../README.md#configuração) do README. Variável específica do desenvolvimento:
 
 | Variável | Descrição |
 |---|---|
 | `DEBUG_PORT` | Porta do debugger na máquina (padrão `9229`) |
+| `POSTGRES_PORT` | Porta do PostgreSQL na máquina (padrão `5432`) |
 
 Em desenvolvimento, o `.env` de exemplo já vem com `SWAGGER="true"` e `LOG_LEVEL="debug"`, e os usuários de demonstração ficam disponíveis (veja [Usuários de demonstração e senhas](#usuários-de-demonstração-e-senhas)).
 
@@ -161,7 +167,7 @@ Logs da aplicação:
 ./setup.sh logs dev
 ```
 
-Os logs também são gravados em `logs/api.log`, na pasta do projeto. Em desenvolvimento, eles saem em texto colorido e no nível definido em `LOG_LEVEL` (`debug` no `.env` de exemplo).
+Os logs da API e do worker também são gravados em `logs/api.log`, na pasta do projeto. Em desenvolvimento, eles saem em texto colorido e no nível definido em `LOG_LEVEL` (`debug` no `.env` de exemplo).
 
 ## Testando a autenticação
 
@@ -275,6 +281,32 @@ create(@Body({ schema: createProductSchema }) body: z.infer<typeof createProduct
 
 Em Linux, os arquivos criados pelo container ficam com o dono `root`. Para evitar isso, gere os arquivos pelo terminal do [Dev Container](#dev-container-vs-code), ou ajuste o dono depois com `sudo chown -R $USER src`.
 
+## Banco de dados
+
+O schema fica em `prisma/schema.prisma`, e cada alteração vira uma migration versionada em `prisma/migrations`. Depois de alterar o schema, crie a migration (o nome descreve a mudança):
+
+```bash
+docker-compose --file docker-compose.dev.yml exec node npm run migrate:dev -- --name descricao-da-mudanca
+```
+
+O comando cria o SQL da migration, aplica no banco de desenvolvimento e gera o cliente do Prisma (`src/generated/prisma`, fora do git). Revise o SQL gerado antes do commit.
+
+Para só gerar o cliente de novo (por exemplo, depois de trocar de branch):
+
+```bash
+docker-compose --file docker-compose.dev.yml exec node npm run prisma:generate
+```
+
+O cliente também é gerado ao subir o ambiente e no `npm run build`. Em produção, o container aplica as migrations pendentes ao iniciar.
+
+Para consultar o banco pelo terminal:
+
+```bash
+docker exec -it dota-metrics-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Os dados ficam no volume `postgres-data`, que continua existindo depois do `./setup.sh stop`.
+
 ## Testes e qualidade
 
 Os testes usam o [Vitest](https://vitest.dev). Todos os comandos rodam dentro do container de desenvolvimento, que precisa estar no ar (`./setup.sh install dev` ou `./setup.sh start dev`).
@@ -285,13 +317,21 @@ Testes unitários:
 docker-compose --file docker-compose.dev.yml exec node npm run test
 ```
 
+Testes de integração (services com o banco):
+
+```bash
+docker-compose --file docker-compose.dev.yml exec node npm run test:integration
+```
+
 Testes e2e:
 
 ```bash
 docker-compose --file docker-compose.dev.yml exec node npm run test:e2e
 ```
 
-Testes unitários e e2e com cobertura:
+Os testes de integração e e2e usam bancos próprios, com o nome do banco de desenvolvimento mais o projeto de testes (`dota_metrics_integration` e `dota_metrics_e2e`). Eles são criados e migrados automaticamente (`test/setup-db.ts`) e esvaziados pelos próprios testes, sem tocar nos dados de desenvolvimento. O OpenDota é simulado (`test/support/opendota-fakes.ts`), então os testes não consomem a cota.
+
+Todos os testes com cobertura:
 
 ```bash
 docker-compose --file docker-compose.dev.yml exec node npm run test:cov
@@ -327,6 +367,10 @@ Depois, no VS Code, execute **TypeScript: Restart TS Server** (Cmd+Shift+P). Se 
 docker-compose --file docker-compose.dev.yml up -d --build -V
 ```
 
-**"port is already allocated" ao subir o ambiente.** Outra aplicação já usa a porta. Altere `PORT` ou `DEBUG_PORT` no `.env` e suba de novo.
+**"port is already allocated" ao subir o ambiente.** Outra aplicação já usa a porta. Altere `PORT`, `DEBUG_PORT` ou `POSTGRES_PORT` no `.env` e suba de novo.
+
+**"Property 'match' does not exist on type 'PrismaService'" ou outro erro de tipos do Prisma.** O cliente gerado está desatualizado em relação ao schema. Gere de novo com `npm run prisma:generate` (veja [Banco de dados](#banco-de-dados)).
+
+**O worker não coleta partidas.** Veja os logs (`./setup.sh logs dev`). `OpenDota rate limit reached` indica que a cota diária acabou; a coleta volta sozinha quando a cota renovar.
 
 **A aplicação não sobe e o log mostra "Config validation error".** Alguma variável do `.env` está faltando ou é inválida; a mensagem indica qual. Compare com o `.env.example`.

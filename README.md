@@ -24,7 +24,9 @@
 
 ## Descrição
 
-Dota Metrics: API em TypeScript com o framework [Nest](https://github.com/nestjs/nest) 12 (ESM), preparado para microsserviços: autenticação JWT com RS256 e JWKS, rastreamento de requisições entre serviços, API versionada, validação com Zod e Docker com PM2. Todo o sistema roda em Docker.
+Dota Metrics: estatísticas do meta de Dota 2. O sistema coleta partidas profissionais e públicas de alto rank pela [API do OpenDota](https://docs.opendota.com), guarda os últimos 30 dias em PostgreSQL e calcula, para o patch atual, a taxa de vitória e de escolha de cada herói e os itens mais usados, com o tempo médio de compra.
+
+Construído sobre o [nestjs-base-project](https://github.com/baymabruno/nestjs-base-project): TypeScript com o framework [Nest](https://github.com/nestjs/nest) 12 (ESM), autenticação JWT com RS256 e JWKS, rastreamento de requisições, API versionada, validação com Zod e Docker com PM2. Todo o sistema roda em Docker.
 
 Este documento explica o sistema. A instalação e a operação de cada ambiente estão nos guias abaixo.
 
@@ -58,6 +60,9 @@ O nome precisa ter apenas letras minúsculas, números e hífens (por exemplo, `
 | Área | Tecnologia |
 |---|---|
 | Framework | NestJS 12 com Express 5, em ESM |
+| Banco de dados | PostgreSQL 18 com Prisma 7 (driver `pg`, migrations versionadas) |
+| Fonte dos dados | API do OpenDota (partidas, heróis, itens e patches) |
+| Coleta | Processo worker separado, com `@nestjs/schedule` |
 | Linguagem | TypeScript 6 (modo strict) |
 | Execução | Node.js 26, com PM2 dentro do Docker |
 | Autenticação | Passport + JWT RS256, com refresh token e JWKS |
@@ -72,7 +77,9 @@ O nome precisa ter apenas letras minúsculas, números e hífens (por exemplo, `
 
 ```
 src/
-├── main.ts                     inicialização (logger, observabilidade)
+├── main.ts                     inicialização da API (logger, observabilidade)
+├── worker.ts                   inicialização do worker de coleta (sem servidor HTTP)
+├── worker.module.ts            módulos do worker: configuração, agendamento, banco e coleta
 ├── app.setup.ts                configuração da aplicação: ID de requisição, log de acesso, helmet, CORS, prefixo /api, versionamento, validação, página inicial e Swagger
 ├── app.module.ts               módulo principal: configuração, rate limit, filtro de erros e módulos
 ├── app.controller.ts           página inicial (views/index.hbs)
@@ -80,11 +87,19 @@ src/
 ├── config/                     validação das variáveis de ambiente (Zod)
 ├── authorization/              login, refresh token, JWKS, guards, decorators e schemas
 ├── users/                      usuários, roles e o UsersService (onde entra a persistência)
-├── health/                     health check (/health)
+├── health/                     health check (/health), inclusive do banco
+├── prisma/                     PrismaService: conexão com o PostgreSQL
+├── opendota/                   cliente da API do OpenDota: fila de requisições, cota diária e schemas das respostas
+├── game-data/                  heróis, itens e patches (constantes do OpenDota)
+├── matches/                    gravação das partidas, dos jogadores e dos itens
+├── ingestion/                  coleta agendada: listas de partidas, detalhes, estatísticas e retenção
+├── stats/                      estatísticas do patch atual: recálculo e rotas /meta e /heroes
+├── generated/                  cliente do Prisma (gerado, fora do git)
 ├── common/                     contexto da requisição, logger e propagação do X-Request-Id
 ├── middleware/                 ID de requisição e log de cada requisição
 └── filters/                    formato padrão das respostas de erro
-test/                           testes e2e (http, swagger e auth) e utilitários (support/)
+prisma/                         schema do banco e migrations
+test/                           testes e2e (http, swagger, auth e stats), banco de testes e utilitários (support/)
 views/                          página inicial (Handlebars)
 docker/                         Dockerfiles e scripts do PM2
 docs/                           guias de instalação e operação dos ambientes
@@ -100,6 +115,27 @@ docs/                           guias de instalação e operação dos ambientes
 6. Em caso de erro, o filtro global responde no formato padrão.
 7. Ao final, o log da requisição registra método, rota, status e duração.
 
+## Coleta e estatísticas
+
+A coleta roda no processo **worker** (`src/worker.ts`), separado da API. A API pode rodar em várias instâncias (cluster do PM2), mas a coleta precisa rodar em um único processo, para não repetir requisições nem gastar a cota duas vezes.
+
+| Tarefa | Quando | O que faz |
+|---|---|---|
+| Partidas profissionais | ao iniciar e a cada `PRO_MATCHES_INTERVAL_MINUTES` | `GET /proMatches`: grava as partidas novas de ligas |
+| Partidas públicas | ao iniciar e a cada `PUBLIC_MATCHES_INTERVAL_MINUTES` | `GET /publicMatches`: grava as partidas ranqueadas All Pick com rank médio a partir de `PUBLIC_MIN_RANK_TIER`, já com os heróis de cada time |
+| Detalhes | a cada minuto | `GET /matches/{id}`: itens finais e ordem de compra de cada jogador; profissionais primeiro, depois as mais recentes |
+| Estatísticas | ao iniciar e a cada `STATS_INTERVAL_MINUTES` | recalcula as tabelas do patch atual |
+| Dados do jogo | diariamente às 5h | heróis, itens e patches |
+| Retenção | diariamente às 4h | apaga as partidas com mais de `MATCH_RETENTION_DAYS` dias |
+
+**Cota do OpenDota.** Sem chave de API, o limite é de 60 requisições por minuto e 3.000 por dia. O cliente faz uma requisição por vez, com intervalo de `OPENDOTA_REQUEST_INTERVAL_MS`, e acompanha a cota restante pelo cabeçalho `x-rate-limit-remaining-day`. A cada minuto, os detalhes usam a cota restante dividida pelos minutos até a meia-noite (UTC), guardando `OPENDOTA_DAILY_RESERVE` requisições para as listas. A cota fica distribuída ao longo do dia, em vez de acabar nas primeiras horas.
+
+**Partidas processadas.** A ordem de compra (`purchase_log`) só existe nas partidas que o OpenDota processou a partir do replay. As profissionais costumam ser processadas alguns minutos depois do fim; enquanto isso, a partida é consultada de novo (até 5 vezes, com espera crescente). As públicas raramente são processadas e ficam só com os itens finais.
+
+**Facetas.** No patch 7.41, todas as facetas estão descontinuadas no OpenDota e as partidas não informam a faceta escolhida, então elas não são coletadas.
+
+**Desempenho.** Os itens ficam em arrays (`smallint[]`) na linha de cada jogador, e o patch e a data da partida são copiados para essa linha, então as estatísticas leem uma única tabela, sem join. O worker agrega as estatísticas no próprio PostgreSQL e grava o resultado em tabelas pequenas (`hero_stats` e `hero_item_stats`), e a API só lê essas tabelas. Cada recálculo apaga as estatísticas anteriores, então só o meta do patch atual fica disponível.
+
 ## Endpoints
 
 As rotas da API ficam sob o prefixo `/api/v1`. A página inicial, o health check, o JWKS e o Swagger ficam fora do prefixo e do versionamento.
@@ -110,6 +146,9 @@ As rotas da API ficam sob o prefixo `/api/v1`. A página inicial, o health check
 | `POST` | `/api/v1/auth/login` | Login; retorna o access token e o refresh token |
 | `POST` | `/api/v1/auth/refresh` | Troca um refresh token por um novo par de tokens |
 | `GET` | `/api/v1/auth/profile` | Dados do usuário logado (requer a role `admin`) |
+| `GET` | `/api/v1/meta` | Patch das estatísticas, quando foram calculadas e quantas partidas incluem |
+| `GET` | `/api/v1/heroes` | Taxa de vitória e de escolha de cada herói. Filtros: `source` (`pro` ou `public`) e `minMatches` |
+| `GET` | `/api/v1/heroes/:heroId` | Estatísticas do herói e os itens do inventário final, com a taxa de vitória e o tempo médio de compra. Filtros: `source`, `minMatches` e `minItemCost` |
 | `GET` | `/.well-known/jwks.json` | Chave pública para validar os tokens (JWKS) |
 | `GET` | `/health` | Health check |
 | `GET` | `/doc` | Documentação Swagger (quando `SWAGGER="true"`) |
@@ -252,26 +291,36 @@ As variáveis ficam no `.env`, a partir do modelo `.env.example`. Elas são vali
 | `JWT_ISSUER` / `JWT_AUDIENCE` | Emissor (`iss`) e público (`aud`) dos tokens (padrão `dota-metrics`) |
 | `JWT_EXPIRES_IN` | Validade do access token em segundos (padrão `900`, 15 minutos) |
 | `JWT_REFRESH_EXPIRES_IN` | Validade do refresh token em segundos (padrão `604800`, 7 dias) |
+| `DATABASE_URL` | Conexão com o PostgreSQL (`postgresql://usuario:senha@postgres:5432/banco`). Gerada pelo `setup.sh` junto com `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB`, as credenciais do container do banco |
+| `OPENDOTA_API_URL` / `OPENDOTA_API_KEY` | Endereço da API do OpenDota e chave opcional (plano pago, com limites maiores) |
+| `OPENDOTA_REQUEST_INTERVAL_MS` | Intervalo mínimo entre as requisições ao OpenDota (padrão `1100`, abaixo de 60 por minuto) |
+| `OPENDOTA_DAILY_RESERVE` | Requisições diárias guardadas para as listas de partidas (padrão `150`) |
+| `MATCH_RETENTION_DAYS` | Dias de partidas mantidos no banco (padrão `30`) |
+| `PRO_MATCHES_INTERVAL_MINUTES` / `PUBLIC_MATCHES_INTERVAL_MINUTES` | Intervalo entre as consultas das partidas profissionais (padrão `15`) e públicas (padrão `5`) |
+| `PUBLIC_MIN_RANK_TIER` | Rank médio mínimo das partidas públicas: a dezena é a medalha (`70` Divine, `80` Immortal); padrão `70` |
+| `DETAILS_PER_MINUTE` | Máximo de detalhes de partidas consultados por minuto (padrão `30`) |
+| `STATS_INTERVAL_MINUTES` | Intervalo entre os recálculos das estatísticas (padrão `15`) |
 | `OBSERVE_APP_KEY` / `OBSERVE_APP_SECRET` / `OBSERVE_SERVICE_ID` | Observabilidade com o `@nestjs/observe`; desligada enquanto a chave e o segredo estiverem vazios (veja [Observabilidade](#observabilidade)) |
 
 ## Qualidade
 
-O projeto tem testes unitários (`src/**/*.spec.ts`) e e2e (`test/`), com meta mínima de cobertura de 90% (linhas, instruções e funções) e 80% (branches), definida em `vitest.config.ts`.
+O projeto tem testes unitários (`src/**/*.spec.ts`), de integração com o banco (`src/**/*.int-spec.ts`) e e2e (`test/`), com meta mínima de cobertura de 90% (linhas, instruções e funções) e 80% (branches), definida em `vitest.config.ts`.
 
 ### CI
 
 A cada push na `main` e em cada pull request, o GitHub Actions (`.github/workflows/ci.yml`) executa:
 
 1. Shellcheck dos scripts, lint, verificação de formatação e build.
-2. Testes unitários e e2e com a meta de cobertura.
+2. Migrations e testes unitários, de integração e e2e com a meta de cobertura, usando um PostgreSQL de serviço do GitHub Actions.
 3. Auditoria de segurança das dependências usadas pela aplicação (`npm audit --omit=dev`).
 4. Build da imagem Docker e scan de vulnerabilidades com o [Trivy](https://trivy.dev). O CI falha se houver vulnerabilidade alta ou crítica com correção disponível.
 5. Nos pushes na `main`, publicação da imagem no GitHub Container Registry.
 
-O Dependabot (`.github/dependabot.yml`) abre pull requests semanais com atualizações das dependências npm, das imagens Docker e das GitHub Actions.
+O Dependabot (`.github/dependabot.yml`) abre pull requests semanais com atualizações das dependências npm, das imagens Docker (inclusive a do PostgreSQL nos arquivos do Docker Compose) e das GitHub Actions.
 
 Ele não propõe as atualizações de versão maior que dependem de uma decisão:
 
+- **PostgreSQL:** uma versão maior exige migrar os dados do volume (`pg_dump` e restauração, ou `pg_upgrade`).
 - **TypeScript 7:** ainda não é suportado pelo `@nestjs/swagger` e pelo `typescript-eslint`.
 - **Node.js e `@types/node`:** o projeto usa o Node.js 26 (LTS a partir de 28/10/2026, com suporte até abril de 2029). Para migrar para uma nova versão maior, atualize juntos o `.nvmrc`, os Dockerfiles (`FROM node:...`), o `engines` e o `@types/node` do `package.json`.
 
