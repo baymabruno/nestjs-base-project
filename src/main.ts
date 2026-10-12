@@ -4,8 +4,8 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
 import { configureApp } from './app.setup.js';
-import { AppLogger } from './common/app-logger.js';
-import { Env, isProduction, LOG_LEVELS } from './config/env.validation.js';
+import { createAppLogger } from './common/app-logger.js';
+import { Env } from './config/env.validation.js';
 import { ObserveInstrument } from './observe.js';
 
 async function bootstrap() {
@@ -15,19 +15,7 @@ async function bootstrap() {
     instrument: ObserveInstrument,
   });
   const config = app.get<ConfigService<Env, true>>(ConfigService);
-  const production = isProduction(
-    config.get('APP_ENVIRONMENT', { infer: true }),
-  );
-
-  // LOG_LEVEL enables the given level and every level more severe than it
-  const logLevel = config.get('LOG_LEVEL', { infer: true });
-  app.useLogger(
-    new AppLogger({
-      logLevels: LOG_LEVELS.slice(LOG_LEVELS.indexOf(logLevel)),
-      json: production,
-      colors: !production,
-    }),
-  );
+  app.useLogger(createAppLogger(config));
 
   configureApp(app);
 

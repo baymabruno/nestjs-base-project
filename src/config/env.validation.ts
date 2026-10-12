@@ -70,6 +70,25 @@ export const envSchema = z
       .int()
       .nonnegative()
       .default(1100),
+    // match collection (worker): days of matches kept in the database
+    MATCH_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+    // minutes between the requests for the latest pro and public matches
+    PRO_MATCHES_INTERVAL_MINUTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(15),
+    PUBLIC_MATCHES_INTERVAL_MINUTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(5),
+    // minimum average rank of the public matches (tens: 7 Divine, 8 Immortal)
+    PUBLIC_MIN_RANK_TIER: z.coerce.number().int().min(10).max(80).default(70),
+    // match details requested per minute, at most
+    DETAILS_PER_MINUTE: z.coerce.number().int().positive().default(30),
+    // daily OpenDota requests kept for the match lists
+    OPENDOTA_DAILY_RESERVE: z.coerce.number().int().nonnegative().default(150),
     THROTTLE_TTL: z.coerce.number().int().positive().default(60000),
     THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
     // observability (@nestjs/observe): enabled only when key and secret are set

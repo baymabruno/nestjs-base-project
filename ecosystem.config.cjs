@@ -23,5 +23,23 @@ module.exports = {
         TZ: 'America/Sao_Paulo',
       },
     },
+    // collects the matches: always a single process (fork), so the jobs do
+    // not run twice
+    {
+      name: 'worker',
+      script: 'dist/worker.js',
+      cwd: __dirname,
+      instances: 1,
+      exec_mode: 'fork',
+      max_memory_restart: '512M',
+      kill_timeout: 10000,
+      error_file: logFile,
+      out_file: logFile,
+      merge_logs: true,
+      env: {
+        NODE_ENV: 'production',
+        TZ: 'America/Sao_Paulo',
+      },
+    },
   ],
 };
