@@ -36,8 +36,8 @@ type SortKey =
   | "long";
 
 const COLUMNS: { key: SortKey; label: string; title: string }[] = [
-  { key: "score", label: "Nota", title: "Nota (0 a 100) e tier" },
   { key: "hero", label: "Herói", title: "Nome do herói" },
+  { key: "score", label: "Nota", title: "Nota (0 a 100) e tier" },
   { key: "matches", label: "Partidas", title: "Partidas com o herói" },
   { key: "winRate", label: "Win rate", title: "Vitórias / partidas" },
   { key: "pickRate", label: "Pick rate", title: "Partidas com o herói / total de partidas" },
@@ -129,12 +129,6 @@ export function HeroTable({ heroes }: { heroes: HeroRow[] }) {
           {sorted.map((hero, index) => (
             <tr key={hero.id}>
               <td className="rank">{index + 1}</td>
-              <td>
-                <span className="role-card-score">
-                  <span className={`tier tier-${hero.tier}`}>{hero.tier}</span>
-                  <strong>{hero.score}</strong>
-                </span>
-              </td>
               <td className="text-left">
                 <Link href={`/heroes/${heroSlug(hero.name)}`} className="hero-cell">
                   <Image
@@ -145,6 +139,12 @@ export function HeroTable({ heroes }: { heroes: HeroRow[] }) {
                   />
                   {hero.localizedName}
                 </Link>
+              </td>
+              <td>
+                <span className="role-card-score">
+                  <span className={`tier tier-${hero.tier}`}>{hero.tier}</span>
+                  <strong>{hero.score}</strong>
+                </span>
               </td>
               <td>{integer(hero.matches)}</td>
               <td className={rateClass(hero.winRate)}>{percent(hero.winRate)}</td>
