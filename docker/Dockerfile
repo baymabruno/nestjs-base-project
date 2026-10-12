@@ -9,7 +9,10 @@ COPY package*.json ./
 RUN npm ci --ignore-scripts
 
 COPY . .
-RUN npm run build && npm prune --omit=dev --ignore-scripts
+# "prisma version" downloads the migration engine, so the runtime image does
+# not need the network to apply migrations
+RUN npm run build && npx prisma version >/dev/null \
+  && npm prune --omit=dev --ignore-scripts
 
 # ---- runtime ----
 FROM node:26.11.1-slim@sha256:193fe51b64e77981119c98c2002c9e32a70e2f006fb4d25068ce0558998917f0
@@ -21,6 +24,7 @@ ARG GIT_SHA=""
 
 ENV NODE_ENV=production \
     TZ=America/Sao_Paulo \
+    PRISMA_HIDE_UPDATE_MESSAGE=true \
     OBSERVE_SERVICE_VERSION=$GIT_SHA \
     PATH=/var/www/html/node_modules/.bin:$PATH
 
@@ -32,6 +36,8 @@ COPY --from=build --chown=node:node /var/www/html/package.json ./
 COPY --from=build --chown=node:node /var/www/html/node_modules ./node_modules
 COPY --from=build --chown=node:node /var/www/html/dist ./dist
 COPY --chown=node:node views ./views
+COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node prisma.config.ts ./
 COPY --chown=node:node ecosystem.config.cjs ./
 COPY --chown=node:node docker/pm2-logrotate-*.sh ./docker/
 RUN mkdir logs && chown node:node logs
@@ -50,4 +56,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://localhost:' + (process.env.PORT || 3000) + '/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
 
-CMD ["pm2-runtime", "start", "ecosystem.config.cjs"]
+# applies the pending migrations before starting the app
+CMD ["sh", "-c", "prisma migrate deploy && exec pm2-runtime start ecosystem.config.cjs"]

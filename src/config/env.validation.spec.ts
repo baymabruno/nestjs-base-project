@@ -1,8 +1,8 @@
+import { requiredEnv } from '../../test/support/env.js';
 import { generateJwtKeys } from '../../test/support/jwt-keys.js';
 import { envSchema } from './env.validation.js';
 
-const keys = generateJwtKeys();
-const base = { ...keys, JWT_EXPIRES_IN: '3600' };
+const base = { ...requiredEnv(), JWT_EXPIRES_IN: '3600' };
 
 describe('envSchema', () => {
   it('applies defaults and converts types', () => {
@@ -45,6 +45,13 @@ describe('envSchema', () => {
 
   it('requires the JWT settings', () => {
     expect(envSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('rejects a DATABASE_URL that is not PostgreSQL', () => {
+    expect(
+      envSchema.safeParse({ ...base, DATABASE_URL: 'mysql://localhost/db' })
+        .success,
+    ).toBe(false);
   });
 
   it('rejects an invalid log level', () => {

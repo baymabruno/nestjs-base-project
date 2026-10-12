@@ -22,8 +22,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      // main.ts only bootstraps the app; interfaces have no runtime code
-      exclude: ['src/**/*.spec.ts', 'src/main.ts', 'src/**/interfaces/**'],
+      // main.ts only bootstraps the app; interfaces have no runtime code;
+      // src/generated is the Prisma client
+      exclude: [
+        'src/**/*.spec.ts',
+        'src/main.ts',
+        'src/**/interfaces/**',
+        'src/generated/**',
+      ],
       reportsDirectory: './coverage',
       // the build fails (CI included) when coverage drops below these values
       thresholds: { lines: 90, statements: 90, functions: 90, branches: 80 },

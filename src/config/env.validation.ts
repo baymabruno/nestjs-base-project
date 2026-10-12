@@ -53,6 +53,10 @@ export const envSchema = z
         if (value === 'true' || value === 'false') return value === 'true';
         return /^\d+$/.test(value) ? Number(value) : value;
       }),
+    // PostgreSQL connection, e.g. postgresql://user:password@host:5432/database
+    DATABASE_URL: z
+      .string()
+      .regex(/^postgres(ql)?:\/\/.+/, 'must be a postgresql:// connection URL'),
     THROTTLE_TTL: z.coerce.number().int().positive().default(60000),
     THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
     // observability (@nestjs/observe): enabled only when key and secret are set

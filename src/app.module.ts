@@ -11,6 +11,7 @@ import { Env, envSchema } from './config/env.validation.js';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter.js';
 import { HealthModule } from './health/health.module.js';
 import { ObserveModule, isObserveEnabled } from './observe.js';
+import { PrismaModule } from './prisma/prisma.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
@@ -40,6 +41,7 @@ import { UsersModule } from './users/users.module.js';
       isObserveEnabled,
     ),
     HttpModule.register({ timeout: 5000, maxRedirects: 5 }),
+    PrismaModule,
     AuthModule,
     UsersModule,
     HealthModule,

@@ -1,6 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { generateJwtKeys } from '../../../test/support/jwt-keys.js';
+import { requiredEnv } from '../../../test/support/env.js';
 import { Env, envSchema } from '../../config/env.validation.js';
 import { Role } from '../../users/enums/role.enum.js';
 import { UsersService } from '../../users/users.service.js';
@@ -10,7 +10,7 @@ import { JwtStrategy } from './jwt.strategy.js';
 describe('JwtStrategy', () => {
   const findOne = vi.fn();
   const config = new ConfigService(
-    envSchema.parse({ ...generateJwtKeys(), JWT_EXPIRES_IN: '900' }),
+    envSchema.parse({ ...requiredEnv(), JWT_EXPIRES_IN: '900' }),
   ) as ConfigService<Env, true>;
   const strategy = new JwtStrategy(config, {
     findOne,

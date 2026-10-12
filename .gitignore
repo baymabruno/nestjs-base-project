@@ -2,6 +2,9 @@
 /dist
 /node_modules
 
+# Prisma client (npm run prisma:generate)
+/src/generated
+
 # environment
 .env
 

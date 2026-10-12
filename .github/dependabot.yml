@@ -30,6 +30,16 @@ updates:
       - dependency-name: node
         update-types: [version-update:semver-major]
 
+  # PostgreSQL image of the docker-compose files
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # a new PostgreSQL major requires migrating the data volume
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { createPublicKey } from 'crypto';
-import { generateJwtKeys } from '../../test/support/jwt-keys.js';
+import { requiredEnv } from '../../test/support/env.js';
 import { Env, envSchema } from '../config/env.validation.js';
 import { JwksService, keyIdOf } from './jwks.service.js';
 
@@ -21,7 +21,7 @@ describe('keyIdOf', () => {
 });
 
 describe('JwksService', () => {
-  const env = envSchema.parse({ ...generateJwtKeys(), JWT_EXPIRES_IN: '900' });
+  const env = envSchema.parse({ ...requiredEnv(), JWT_EXPIRES_IN: '900' });
   const service = new JwksService(
     new ConfigService(env) as ConfigService<Env, true>,
   );

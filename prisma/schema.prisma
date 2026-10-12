@@ -1,0 +1,15 @@
+// Database schema. After changing it, create a migration with
+//   npx prisma migrate dev --name <description>
+// (docs/DESENVOLVIMENTO.md)
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+

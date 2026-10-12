@@ -11,6 +11,23 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # database of the e2e tests
+    services:
+      postgres:
+        image: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: dota_metrics
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d dota_metrics"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/dota_metrics
     steps:
       - uses: actions/checkout@v7
 
@@ -32,6 +49,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Database migrations
+        run: npm run migrate:deploy
 
       # unit and e2e tests; fails when coverage drops below the thresholds
       - name: Tests and coverage

@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import bcrypt from 'bcrypt';
-import { generateJwtKeys } from '../../test/support/jwt-keys.js';
+import { requiredEnv } from '../../test/support/env.js';
 import { Env, envSchema } from '../config/env.validation.js';
 import { Role } from '../users/enums/role.enum.js';
 import { UsersService } from '../users/users.service.js';
@@ -24,7 +24,7 @@ const PASSWORD_HASH =
   '$2b$10$y9NEfA5/Byz.YVo4htUvcu4HAsUAtj4uJ5Fo/dH0BFBgqUU.Rq4Ba';
 
 const config = new ConfigService(
-  envSchema.parse({ ...generateJwtKeys(), JWT_EXPIRES_IN: '900' }),
+  envSchema.parse({ ...requiredEnv(), JWT_EXPIRES_IN: '900' }),
 ) as ConfigService<Env, true>;
 const jwtService = new JwtService(jwtModuleOptions(config));
 

@@ -171,11 +171,31 @@ generate_jwt_keys() {
   rm -rf "$dir"
 }
 
+# Sets the credentials of the postgres container and the DATABASE_URL used by
+# the application. Keeps a password that already exists: the database volume
+# is initialized with it
+configure_database() {
+  local user password database
+  user="$(get_env POSTGRES_USER)"
+  password="$(get_env POSTGRES_PASSWORD)"
+  database="$(get_env POSTGRES_DB)"
+
+  user="${user:-dota}"
+  database="${database:-dota_metrics}"
+  [ -n "$password" ] || password="$(openssl rand -hex 24)"
+
+  set_env POSTGRES_USER "$user"
+  set_env POSTGRES_PASSWORD "$password"
+  set_env POSTGRES_DB "$database"
+  set_env DATABASE_URL "postgresql://$user:$password@postgres:5432/$database"
+}
+
 prepare_env() {
   if [ ! -f .env ]; then
     info "Creating .env from .env.example"
     cp .env.example .env
     generate_jwt_keys
+    configure_database
 
     if [ "$ENVIRONMENT" = "prod" ]; then
       set_env APP_ENVIRONMENT production
@@ -184,7 +204,7 @@ prepare_env() {
     fi
 
     fix_ownership .env
-    success ".env created with a new JWT key pair"
+    success ".env created with a new JWT key pair and database password"
   else
     info "Using the existing .env"
 
@@ -194,6 +214,13 @@ prepare_env() {
       unset_env JWT_KEY
       fix_ownership .env
       success "JWT key pair added to .env (JWT_KEY is no longer used)"
+    fi
+
+    # .env files created before the database was introduced
+    if [ -z "$(get_env DATABASE_URL)" ]; then
+      configure_database
+      fix_ownership .env
+      success "Database credentials added to .env"
     fi
   fi
 
@@ -259,10 +286,19 @@ print_urls() {
   echo "  Health:  $base/health"
   [ "$(get_env SWAGGER)" = "true" ] && echo "  Swagger: $base/doc"
   [ "$ENVIRONMENT" = "dev" ] && echo "  Debug:   localhost:$(get_env DEBUG_PORT | grep . || echo 9229)"
+  [ "$ENVIRONMENT" = "dev" ] && echo "  Postgres: localhost:$(get_env POSTGRES_PORT | grep . || echo 5432)"
   echo
   echo "  Logs:    $SETUP_CMD logs $ENVIRONMENT"
   echo "  Stop:    $SETUP_CMD stop $ENVIRONMENT"
   echo
+}
+
+# Applies the pending migrations (dev only: the production container applies
+# them when it starts, see docker/Dockerfile)
+run_migrations() {
+  info "Applying database migrations"
+  docker exec "$CONTAINER" npx prisma migrate deploy >/dev/null
+  success "Database is up to date"
 }
 
 # Copies the container's node_modules to the project folder, so the editor
@@ -292,7 +328,10 @@ install() {
   compose up -d --build --remove-orphans -V
 
   wait_until_healthy
-  [ "$ENVIRONMENT" = "dev" ] && copy_node_modules
+  if [ "$ENVIRONMENT" = "dev" ]; then
+    run_migrations
+    copy_node_modules
+  fi
   print_urls
 }
 
@@ -303,6 +342,7 @@ start() {
   info "Starting the $ENVIRONMENT environment"
   compose up -d
   wait_until_healthy
+  [ "$ENVIRONMENT" = "dev" ] && run_migrations
   print_urls
 }
 

@@ -5,7 +5,14 @@ import tseslint from 'typescript-eslint';
 
 /** @type {import('eslint').Linter.Config[]} */
 export default tseslint.config(
-  { ignores: ['dist/**', 'coverage/**', 'eslint.config.mjs'] },
+  {
+    ignores: [
+      'dist/**',
+      'coverage/**',
+      'src/generated/**',
+      'eslint.config.mjs',
+    ],
+  },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
   eslintPluginPrettierRecommended,

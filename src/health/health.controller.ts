@@ -4,8 +4,10 @@ import {
   HealthCheck,
   HealthCheckService,
   MemoryHealthIndicator,
+  PrismaHealthIndicator,
 } from '@nestjs/terminus';
 import { SkipThrottle } from '@nestjs/throttler';
+import { PrismaService } from '../prisma/prisma.service.js';
 
 const HEAP_LIMIT_BYTES = 512 * 1024 * 1024;
 
@@ -17,6 +19,8 @@ export class HealthController {
   constructor(
     private readonly health: HealthCheckService,
     private readonly memory: MemoryHealthIndicator,
+    private readonly database: PrismaHealthIndicator,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get()
@@ -24,6 +28,7 @@ export class HealthController {
   check() {
     return this.health.check([
       () => this.memory.checkHeap('memory_heap', HEAP_LIMIT_BYTES),
+      () => this.database.pingCheck('database', this.prisma),
     ]);
   }
 }

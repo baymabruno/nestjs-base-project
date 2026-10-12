@@ -3,3 +3,4 @@ dist
 coverage
 logs
 .git
+src/generated

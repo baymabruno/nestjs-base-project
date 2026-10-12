@@ -14,6 +14,9 @@ services:
       - logs:/var/www/html/logs
     ports:
       - ${PORT:-3000}:${PORT:-3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
     # resource limits and hardening
     deploy:
       resources:
@@ -32,9 +35,41 @@ services:
     networks:
       - nest_network
 
+  # database (PostgreSQL): reachable only by the application
+  postgres:
+    container_name: dota-metrics-postgres
+    image: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '${POSTGRES_CPU_LIMIT:-1}'
+          memory: ${POSTGRES_MEMORY_LIMIT:-1g}
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+      - nest_network
+
 #volumes
 volumes:
   logs:
+  postgres-data:
 
 #network
 networks:
