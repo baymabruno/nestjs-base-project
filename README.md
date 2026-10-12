@@ -165,7 +165,14 @@ O site (`web/`) mostra as estatísticas em páginas. É um projeto Next.js separ
 | Win rate por duração | Partidas de até 35 minutos, de 35 a 50 e de 50 ou mais |
 | Tendência | Win rate por dia e a diferença entre a segunda e a primeira metade do período. Só aparece quando cada metade tem pelo menos 30 partidas do herói: com menos, uma diferença de dezenas de pontos pode ser puro acaso |
 
-Os filtros (fonte, rank, período e amostra mínima) ficam na URL, então uma visão pode ser compartilhada por link. A API calcula tudo a partir da tabela `hero_daily_stats` (herói × dia × fonte × rank × duração), recalculada pelo worker.
+**Top heróis por função**, no topo da página, inspirado no Dota2ProTracker: abas Todas, Carry, Mid, Offlane, Support e Hard Support, com os 6 melhores heróis em cartões (partidas, win rate, nota e tier). Usa os dados do STRATZ, segue os filtros de rank e período da página e não aparece com o filtro de partidas profissionais. A nota tem fórmula aberta:
+
+- nota (0 a 100) = 70% do percentil da win rate ajustada (Wilson) + 30% do percentil da pick rate na função, entre os heróis da função com pelo menos 100 partidas;
+- tier: S a partir de 80, A a partir de 65, B a partir de 50, C a partir de 35 e D abaixo disso.
+
+O percentil é a posição do herói entre os da função, de 0 a 1. Diferente de uma escala entre o mínimo e o máximo, ele não é distorcido por poucos heróis extremos. Como é relativa à função, a nota compara heróis da mesma função: um offlaner muito escolhido, com win rate acima da mediana dos offlaners, pode ter nota alta mesmo com win rate abaixo de 50%.
+
+Os filtros (fonte, rank, período, amostra mínima e função) ficam na URL, então uma visão pode ser compartilhada por link. A API calcula tudo a partir da tabela `hero_daily_stats` (herói × dia × fonte × rank × duração), recalculada pelo worker.
 
 **Página do herói (`/heroes/<nome>`, por exemplo `/heroes/pudge`)**, aberta pelo nome do herói na página de meta, nos moldes das páginas de herói do Dota2ProTracker e dos matchups do STRATZ. Usa os últimos 30 dias do patch, com o filtro de fonte:
 

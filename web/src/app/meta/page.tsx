@@ -3,9 +3,11 @@ import {
   ApiError,
   getMeta,
   getMetaHeroes,
+  getRoles,
   type Meta,
   type MetaFilters,
   type MetaHeroes,
+  type Roles,
 } from "@/lib/api";
 import { dateTime, integer, shortDay } from "@/lib/format";
 import {
@@ -15,6 +17,7 @@ import {
   SAMPLE_OPTIONS,
 } from "./filters";
 import { MetaTable } from "./meta-table";
+import { TopRoles } from "./top-roles";
 import { Segmented } from "@/components/segmented";
 
 export const metadata: Metadata = { title: "Meta" };
@@ -143,8 +146,20 @@ export default async function MetaPage({
 
   let meta: Meta | null;
   let data: MetaHeroes;
+  let roles: Roles | null;
   try {
-    [meta, data] = await Promise.all([getMeta(), getMetaHeroes(filters)]);
+    [meta, data, roles] = await Promise.all([
+      getMeta(),
+      getMetaHeroes(filters),
+      // STRATZ covers ranked public matches only
+      filters.source === "pro"
+        ? null
+        : getRoles({
+            position: filters.role,
+            bracket: filters.bracket,
+            days: filters.days,
+          }),
+    ]);
   } catch (error) {
     if (!(error instanceof ApiError)) throw error;
     return (
@@ -166,6 +181,8 @@ export default async function MetaPage({
         públicas de alto rank.
       </p>
       <Filters filters={filters} />
+      {filters.source !== "pro" && <TopRoles filters={filters} roles={roles} />}
+      <h2 className="section-title">Todos os heróis</h2>
       <Summary meta={meta} data={data} />
       {data.heroes.length > 0 ? (
         <MetaTable heroes={data.heroes} />

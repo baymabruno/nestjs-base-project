@@ -22,6 +22,9 @@ export function parseFilters(params: SearchParams): MetaFilters {
     days: oneOf(first(params.days), DAY_OPTIONS) ?? DEFAULT_FILTERS.days,
     minMatches:
       oneOf(first(params.min), SAMPLE_OPTIONS) ?? DEFAULT_FILTERS.minMatches,
+    role: oneOf(first(params.role), ["1", "2", "3", "4", "5"] as const)
+      ? (Number(first(params.role)) as MetaFilters["role"])
+      : undefined,
   };
 }
 
@@ -38,6 +41,7 @@ export function filterHref(
   if (next.minMatches !== DEFAULT_FILTERS.minMatches) {
     params.set("min", String(next.minMatches));
   }
+  if (next.role) params.set("role", String(next.role));
   const query = params.toString();
   return query ? `/meta?${query}` : "/meta";
 }

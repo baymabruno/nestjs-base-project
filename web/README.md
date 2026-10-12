@@ -6,5 +6,5 @@ Roda em Docker junto com o resto do sistema: veja o [guia de desenvolvimento](..
 
 | Página | Descrição |
 |---|---|
-| `/meta` | Heróis do patch atual: win rate, win rate ajustada, pick rate, win rate por duração e tendência, com filtros de fonte, rank, período e amostra mínima |
+| `/meta` | Top heróis por função (dados do STRATZ, com nota e tier) e todos os heróis do patch atual: win rate, win rate ajustada, pick rate, win rate por duração e tendência, com filtros de fonte, rank, período, amostra mínima e função |
 | `/heroes/<nome>` | Um herói: resumo, itens iniciais e finais, tempo de compra × win rate e matchups (bom contra, fraco contra e melhores aliados) |

@@ -55,6 +55,8 @@ export interface MetaFilters {
   bracket?: Bracket;
   days: number;
   minMatches: number;
+  /** tab of the top heroes by role (empty: all roles) */
+  role?: 1 | 2 | 3 | 4 | 5;
 }
 
 /** The API did not answer or answered with an error */
@@ -212,4 +214,38 @@ export function getHeroItemTimings(
   return required(
     `/heroes/${heroId}/item-timings?${query({ source, minMatches: 1 })}`,
   );
+}
+
+// ---- statistics by role (STRATZ) ----
+
+export type Position = 1 | 2 | 3 | 4 | 5;
+export type Tier = "S" | "A" | "B" | "C" | "D";
+
+export interface RoleHero {
+  id: number;
+  name: string;
+  localizedName: string;
+  matches: number;
+  wins: number;
+  winRate: number;
+  winRateLow: number;
+  pickRate: number;
+  score: number;
+  tier: Tier;
+}
+
+export interface Roles {
+  available: boolean;
+  from: string | null;
+  to: string | null;
+  matches: number;
+  heroes: RoleHero[];
+}
+
+export function getRoles(filters: {
+  position?: Position;
+  bracket?: Bracket;
+  days: number;
+}): Promise<Roles> {
+  return required(`/meta/roles?${query({ ...filters, minMatches: 100 })}`);
 }
