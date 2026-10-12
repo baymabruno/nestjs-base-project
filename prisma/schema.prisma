@@ -146,3 +146,22 @@ model HeroItemStat {
   @@id([patchId, source, heroId, itemId])
   @@map("hero_item_stats")
 }
+
+// heroes per day, source, rank and game duration: the meta page filters and
+// trends read only this table (days of the current patch)
+model HeroDailyStat {
+  patchId        Int         @map("patch_id") @db.SmallInt
+  // UTC day of the match start
+  day            DateTime    @db.Date
+  source         MatchSource
+  // tens of the average rank tier (7 Divine, 8 Immortal); 0 for pro matches
+  rankBracket    Int         @map("rank_bracket") @db.SmallInt
+  // 0: under 35 minutes, 1: 35 to 50, 2: 50 or more
+  durationBucket Int         @map("duration_bucket") @db.SmallInt
+  heroId         Int         @map("hero_id") @db.SmallInt
+  matches        Int
+  wins           Int
+
+  @@id([patchId, day, source, rankBracket, durationBucket, heroId])
+  @@map("hero_daily_stats")
+}

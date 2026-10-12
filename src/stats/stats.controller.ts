@@ -11,6 +11,8 @@ import {
   heroIdSchema,
   heroListSchema,
   heroQuerySchema,
+  metaHeroesQuerySchema,
+  metaHeroesSchema,
   metaSchema,
   type HeroDetails,
   type HeroesQuery,
@@ -18,14 +20,20 @@ import {
   type HeroList,
   type HeroQuery,
   type Meta,
+  type MetaHeroes,
+  type MetaHeroesQuery,
 } from './schemas/stats.schemas.js';
+import { MetaService } from './meta.service.js';
 import { StatsService } from './stats.service.js';
 
 // public routes: statistics of the current patch
 @ApiTags('Stats')
 @Controller()
 export class StatsController {
-  constructor(private readonly stats: StatsService) {}
+  constructor(
+    private readonly stats: StatsService,
+    private readonly meta: MetaService,
+  ) {}
 
   @Get('/meta')
   @ApiOkResponse({
@@ -35,6 +43,18 @@ export class StatsController {
   @ApiNoContentResponse({ description: 'No statistics calculated yet' })
   getMeta(): Promise<Meta | null> {
     return this.stats.getMeta();
+  }
+
+  @Get('/meta/heroes')
+  @ApiOkResponse({
+    description:
+      'Meta page: heroes of the current patch in a period, with the adjusted win rate, win rate by duration and trend',
+    standardSchema: metaHeroesSchema,
+  })
+  getMetaHeroes(
+    @Query({ schema: metaHeroesQuerySchema }) query: MetaHeroesQuery,
+  ): Promise<MetaHeroes> {
+    return this.meta.getHeroes(query);
   }
 
   @Get('/heroes')

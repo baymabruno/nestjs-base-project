@@ -58,6 +58,31 @@ describe('Stats (e2e)', () => {
       });
   });
 
+  it('/api/v1/meta/heroes (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/meta/heroes?days=30&source=public')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.patch.name).toBe('7.41');
+        expect(res.body.heroes[0]).toMatchObject({
+          id: 1,
+          matches: 2,
+          winRate: 1,
+          durations: { short: { matches: 0, winRate: null } },
+        });
+        expect(res.body.heroes[0].daily).toHaveLength(30);
+      });
+  });
+
+  it.each(['days=0', 'days=31', 'bracket=herald'])(
+    'rejects an invalid meta filter: %s',
+    async (filter) => {
+      await request(app.getHttpServer())
+        .get(`/api/v1/meta/heroes?${filter}`)
+        .expect(400);
+    },
+  );
+
   it('rejects invalid filters', () => {
     return request(app.getHttpServer())
       .get('/api/v1/heroes?source=ranked')

@@ -158,6 +158,7 @@ As rotas da API ficam sob o prefixo `/api/v1`. A página inicial, o health check
 | `POST` | `/api/v1/auth/refresh` | Troca um refresh token por um novo par de tokens |
 | `GET` | `/api/v1/auth/profile` | Dados do usuário logado (requer a role `admin`) |
 | `GET` | `/api/v1/meta` | Patch das estatísticas, quando foram calculadas e quantas partidas incluem |
+| `GET` | `/api/v1/meta/heroes` | Página de meta: heróis num período (`days`, de 1 a 30), com win rate ajustada, pick rate, win rate por duração e tendência diária. Filtros: `source`, `bracket` (`divine` ou `immortal`) e `minMatches` |
 | `GET` | `/api/v1/heroes` | Taxa de vitória e de escolha de cada herói. Filtros: `source` (`pro` ou `public`) e `minMatches` |
 | `GET` | `/api/v1/heroes/:heroId` | Estatísticas do herói e os itens do inventário final, com a taxa de vitória e o tempo médio de compra. Filtros: `source`, `minMatches` e `minItemCost` |
 | `GET` | `/.well-known/jwks.json` | Chave pública para validar os tokens (JWKS) |

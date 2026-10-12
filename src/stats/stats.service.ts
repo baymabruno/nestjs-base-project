@@ -37,6 +37,7 @@ export class StatsService {
     await this.prisma.$transaction([
       this.prisma.heroStat.deleteMany(),
       this.prisma.heroItemStat.deleteMany(),
+      this.prisma.heroDailyStat.deleteMany(),
       this.prisma.$executeRaw`
         INSERT INTO hero_stats (patch_id, source, hero_id, matches, wins, updated_at)
         SELECT patch_id, source, hero_id, count(*), count(*) FILTER (WHERE win), now()
@@ -57,6 +58,19 @@ export class StatsService {
         ) t
         WHERE p.patch_id = ${patchId}
         GROUP BY p.patch_id, p.source, p.hero_id, i.item_id`,
+      // per day, rank (tens of the average rank tier; pro matches have none)
+      // and duration: under 35 minutes, 35 to 50, 50 or more
+      this.prisma.$executeRaw`
+        INSERT INTO hero_daily_stats (patch_id, day, source, rank_bracket,
+          duration_bucket, hero_id, matches, wins)
+        SELECT p.patch_id, (p.start_time AT TIME ZONE 'UTC')::date, p.source,
+          coalesce(m.avg_rank_tier / 10, 0),
+          CASE WHEN m.duration < 2100 THEN 0 WHEN m.duration < 3000 THEN 1 ELSE 2 END,
+          p.hero_id, count(*), count(*) FILTER (WHERE p.win)
+        FROM match_players p
+        JOIN matches m ON m.id = p.match_id
+        WHERE p.patch_id = ${patchId}
+        GROUP BY 1, 2, 3, 4, 5, 6`,
     ]);
   }
 

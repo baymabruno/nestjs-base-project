@@ -16,4 +16,5 @@ As mudanças de cada versão do Dota Metrics. O formato segue o [Keep a Changelo
 - Comando `./setup.sh backfill [dias]` para carregar as partidas passadas (padrão de 1 dia), que continua de onde parou e usa no máximo metade da cota diária.
 - O cliente do OpenDota respeita o limite por minuto pelo cabeçalho `x-rate-limit-remaining-minute` e espera um minuto após um 429, sem considerar a cota diária esgotada.
 - Referência de todas as variáveis de ambiente (`docs/CONFIGURACAO.md`) e um comentário para cada uma no `.env.example`, que deixa de trazer as variáveis de e-mail, não usadas.
+- Rota `GET /api/v1/meta/heroes` e a tabela `hero_daily_stats`, recalculada pelo worker.
 - Metabase no ambiente de desenvolvimento (`./setup.sh metabase`), com um usuário somente leitura no banco e o painel Dota Metrics criado automaticamente.
