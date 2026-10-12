@@ -9,6 +9,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const RANK_BRACKETS = { divine: 7, immortal: 8 } as const;
 const SOURCES = { pro: MatchSource.PRO, public: MatchSource.PUBLIC } as const;
 const DURATIONS = ['short', 'medium', 'long'] as const;
+// matches each half of the period needs for a trend (a few matches would
+// make a difference of tens of points by chance)
+export const MIN_TREND_MATCHES = 30;
 
 interface Totals {
   matches: number;
@@ -120,7 +123,9 @@ export class MetaService {
         .flatMap(([heroId, stats]) => {
           const hero = heroById.get(heroId);
           if (!hero || stats.total.matches < minMatches) return [];
-          const [first, second] = stats.halves.map(rateOf);
+          const [first, second] = stats.halves.map((half) =>
+            half.matches >= MIN_TREND_MATCHES ? rateOf(half) : null,
+          );
           return [
             {
               ...hero,

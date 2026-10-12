@@ -167,7 +167,7 @@ export const metaHeroesSchema = z
             .number()
             .nullable()
             .describe(
-              'Win rate of the second half of the period minus the first half (null with 1 day or no matches in a half)',
+              'Win rate of the second half of the period minus the first half (null with 1 day or fewer than 30 matches in a half)',
             ),
           daily: z
             .array(

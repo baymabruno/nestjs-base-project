@@ -11,7 +11,7 @@ import {
 import { GameDataService } from '../game-data/game-data.service.js';
 import { MatchesService } from '../matches/matches.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { MetaService } from './meta.service.js';
+import { MetaService, MIN_TREND_MATCHES } from './meta.service.js';
 import { StatsService } from './stats.service.js';
 
 const DAY = 86400;
@@ -139,25 +139,39 @@ describe('MetaService', () => {
   });
 
   it('reports the daily results and the trend', async () => {
+    // a 4 day period: 0 wins in the first half, all wins in the second
+    const ids = (from: number) =>
+      Array.from({ length: MIN_TREND_MATCHES }, (_, index) => from + index);
     await matches.addPublicMatches([
-      // first half of a 4 day period: 0 wins of 1
+      ...ids(100).map((id) => direWins(id, { start_time: NOW - 3 * DAY })),
+      ...ids(200).map((id) => radiantWins(id, { start_time: NOW - DAY })),
+    ]);
+    await refresh();
+
+    const [antiMage] = (
+      await service.getHeroes({ ...query, days: 4 }, now)
+    ).heroes.filter((hero) => hero.id === 1);
+
+    expect(antiMage.trend).toBe(1);
+    expect(antiMage.daily.map((day) => [day.matches, day.winRate])).toEqual([
+      [MIN_TREND_MATCHES, 0],
+      [0, null],
+      [MIN_TREND_MATCHES, 1],
+      [0, null],
+    ]);
+  });
+
+  it('has no trend while a half has few matches', async () => {
+    await matches.addPublicMatches([
       direWins(1, { start_time: NOW - 3 * DAY }),
-      // second half: 2 wins of 2
       radiantWins(2, { start_time: NOW - DAY }),
-      radiantWins(3),
     ]);
     await refresh();
 
     const [antiMage] = (await service.getHeroes({ ...query, days: 4 }, now))
       .heroes;
 
-    expect(antiMage.trend).toBe(1);
-    expect(antiMage.daily.map((day) => [day.matches, day.winRate])).toEqual([
-      [1, 0],
-      [0, null],
-      [1, 1],
-      [1, 1],
-    ]);
+    expect(antiMage.trend).toBeNull();
   });
 
   it('has no trend for a single day', async () => {

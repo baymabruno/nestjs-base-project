@@ -19,4 +19,5 @@ As mudanças de cada versão do Dota Metrics. O formato segue o [Keep a Changelo
 - Site em Next.js 16 (`web/`), com a página de meta: win rate, win rate ajustada pelo intervalo de Wilson, pick rate, win rate por duração e tendência diária, com filtros de fonte, rank, período e amostra mínima. Roda nos ambientes de desenvolvimento e produção, com a própria verificação no CI.
 - Rota `GET /api/v1/meta/heroes` e a tabela `hero_daily_stats`, recalculada pelo worker.
 - Página do herói no site (`/heroes/<nome>`), com resumo, itens iniciais e finais, win rate pelo tempo de compra de cada item e matchups; rotas `GET /api/v1/heroes/:heroId/matchups` e `GET /api/v1/heroes/:heroId/item-timings`, e as tabelas `hero_matchup_stats` e `hero_item_timing_stats`. A rota `GET /api/v1/heroes/:heroId` passa a informar `itemMatches`, a base do uso de cada item.
+- A tendência da página de meta só aparece quando cada metade do período tem pelo menos 30 partidas do herói.
 - Metabase no ambiente de desenvolvimento (`./setup.sh metabase`), com um usuário somente leitura no banco e o painel Dota Metrics criado automaticamente.

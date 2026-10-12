@@ -160,7 +160,7 @@ O site (`web/`) mostra as estatísticas em páginas. É um projeto Next.js separ
 | Partidas, win rate e pick rate | No período e nos filtros escolhidos |
 | WR ajustada (ordem padrão) | Limite inferior do intervalo de Wilson (95%) da win rate: a win rate que a amostra garante. Com poucas partidas fica bem abaixo da win rate, então amostras pequenas não chegam ao topo por acaso |
 | Win rate por duração | Partidas de até 35 minutos, de 35 a 50 e de 50 ou mais |
-| Tendência | Win rate por dia e a diferença entre a segunda e a primeira metade do período |
+| Tendência | Win rate por dia e a diferença entre a segunda e a primeira metade do período. Só aparece quando cada metade tem pelo menos 30 partidas do herói: com menos, uma diferença de dezenas de pontos pode ser puro acaso |
 
 Os filtros (fonte, rank, período e amostra mínima) ficam na URL, então uma visão pode ser compartilhada por link. A API calcula tudo a partir da tabela `hero_daily_stats` (herói × dia × fonte × rank × duração), recalculada pelo worker.
 
