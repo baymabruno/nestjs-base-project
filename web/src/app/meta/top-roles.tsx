@@ -1,8 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { MetaFilters, Position, Roles } from "@/lib/api";
+import type { Position, Roles } from "@/lib/api";
+import { filterHref, type Filters } from "@/lib/filters";
 import { heroImage, heroSlug, integer, percent, shortDay } from "@/lib/format";
-import { filterHref } from "./filters";
 
 const ROLES: { value?: Position; label: string }[] = [
   { label: "Todas" },
@@ -19,7 +19,7 @@ export function TopRoles({
   filters,
   roles,
 }: {
-  filters: MetaFilters;
+  filters: Filters;
   roles: Roles | null;
 }) {
   return (
@@ -28,7 +28,7 @@ export function TopRoles({
         {ROLES.map((role) => (
           <Link
             key={role.label}
-            href={filterHref(filters, { role: role.value })}
+            href={filterHref("/meta", filters, { role: role.value })}
             role="tab"
             aria-selected={role.value === filters.role}
             scroll={false}
@@ -47,41 +47,53 @@ export function TopRoles({
       ) : (
         <>
           <div className="role-cards">
-            {roles.heroes.slice(0, SHOWN).map((hero) => (
-              <Link
-                key={hero.id}
-                href={`/heroes/${heroSlug(hero.name)}`}
-                className="role-card"
-              >
-                <Image src={heroImage(hero.name)} alt="" width={64} height={36} />
-                <div className="role-card-body">
-                  <div className="role-card-name">{hero.localizedName}</div>
-                  <div className="role-card-stats">
-                    <span>{integer(hero.matches)}</span>
-                    <span className={hero.winRate >= 0.5 ? "good" : "bad"}>
-                      {percent(hero.winRate)}
-                    </span>
+            {roles.heroes
+              // the best heroes of the role by score, from the highest win rate
+              .slice(0, SHOWN)
+              .sort((a, b) => b.winRate - a.winRate)
+              .map((hero) => (
+                <Link
+                  key={hero.id}
+                  href={`/heroes/${heroSlug(hero.name)}`}
+                  className="role-card"
+                >
+                  <Image
+                    src={heroImage(hero.name)}
+                    alt=""
+                    width={64}
+                    height={36}
+                  />
+                  <div className="role-card-body">
+                    <div className="role-card-name">{hero.localizedName}</div>
+                    <div className="role-card-stats">
+                      <span>{integer(hero.matches)}</span>
+                      <span className={hero.winRate >= 0.5 ? "good" : "bad"}>
+                        {percent(hero.winRate)}
+                      </span>
+                    </div>
+                    <div className="role-card-score">
+                      <span className={`tier tier-${hero.tier}`}>
+                        {hero.tier}
+                      </span>
+                      <strong>{hero.score}</strong>
+                      <small>/100</small>
+                    </div>
                   </div>
-                  <div className="role-card-score">
-                    <span className={`tier tier-${hero.tier}`}>{hero.tier}</span>
-                    <strong>{hero.score}</strong>
-                    <small>/100</small>
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))}
           </div>
           <p className="hint">
             {integer(roles.matches)} partidas ranqueadas (All Pick, Divine e
-            Immortal) de {roles.from && shortDay(roles.from)} a{" "}
-            {roles.to && shortDay(roles.to)}, com dados do{" "}
+            Immortal) do dia {roles.day && shortDay(roles.day)}, o último dia
+            completo, com dados do{" "}
             <a href="https://stratz.com" target="_blank" rel="noreferrer">
               STRATZ
             </a>
-            . A nota (0 a 100) soma 70% da posição do herói na win rate
-            ajustada e 30% da posição na pick rate, entre os heróis da função;
-            o tier vem dela: S a partir de 80, A de 65, B de 50, C de 35 e D
-            abaixo.
+            . Os cartões mostram os {SHOWN} heróis de maior nota da função, do
+            maior para o menor win rate. A nota (0 a 100) soma 70% da posição do
+            herói na win rate ajustada e 30% da posição na pick rate, entre os
+            heróis da função; o tier vem dela: S a partir de 80, A de 65, B de
+            50, C de 35 e D abaixo.
           </p>
         </>
       )}
