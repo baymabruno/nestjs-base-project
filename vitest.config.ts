@@ -9,12 +9,26 @@ export default defineConfig({
         extends: true,
         test: { name: 'unit', include: ['src/**/*.spec.ts'] },
       },
+      // services tested against a real database
+      {
+        extends: true,
+        test: {
+          name: 'integration',
+          include: ['src/**/*.int-spec.ts'],
+          globalSetup: ['./test/setup-db.ts'],
+          setupFiles: ['./test/setup-env.ts', './test/setup-integration.ts'],
+          // the files share the database
+          fileParallelism: false,
+        },
+      },
       {
         extends: true,
         test: {
           name: 'e2e',
           include: ['test/**/*.e2e-spec.ts'],
+          globalSetup: ['./test/setup-db.ts'],
           setupFiles: ['./test/setup-env.ts'],
+          fileParallelism: false,
         },
       },
     ],
@@ -26,6 +40,7 @@ export default defineConfig({
       // src/generated is the Prisma client
       exclude: [
         'src/**/*.spec.ts',
+        'src/**/*.int-spec.ts',
         'src/main.ts',
         'src/**/interfaces/**',
         'src/generated/**',

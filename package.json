@@ -34,6 +34,7 @@
     "test:watch": "vitest --project unit",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
+    "test:integration": "vitest run --project integration",
     "test:e2e": "vitest run --project e2e"
   },
   "dependencies": {

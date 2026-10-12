@@ -13,3 +13,106 @@ datasource db {
   provider = "postgresql"
 }
 
+// ---- game data (OpenDota constants) ----
+
+model Hero {
+  id            Int      @id @db.SmallInt
+  // internal name, e.g. npc_dota_hero_antimage
+  name          String   @unique
+  localizedName String   @map("localized_name")
+  primaryAttr   String   @map("primary_attr")
+  roles         String[]
+
+  @@map("heroes")
+}
+
+model Item {
+  id          Int     @id @db.SmallInt
+  // key used by the purchase log, e.g. "blink"
+  name        String  @unique
+  displayName String? @map("display_name")
+  cost        Int?
+
+  @@map("items")
+}
+
+model Patch {
+  // OpenDota patch id (increases with each patch)
+  id         Int      @id @db.SmallInt
+  name       String
+  releasedAt DateTime @map("released_at") @db.Timestamptz
+
+  @@map("patches")
+}
+
+// ---- matches (kept for MATCH_RETENTION_DAYS) ----
+
+enum MatchSource {
+  PRO
+  PUBLIC
+
+  @@map("match_source")
+}
+
+enum DetailsStatus {
+  // waiting for GET /matches/{id}
+  PENDING
+  // final items, without the purchase order (match not parsed)
+  FETCHED
+  // final items and purchase order
+  PARSED
+  // gave up (not found or never parsed)
+  FAILED
+
+  @@map("details_status")
+}
+
+model Match {
+  // OpenDota/Steam match id
+  id              BigInt        @id
+  source          MatchSource
+  startTime       DateTime      @map("start_time") @db.Timestamptz
+  duration        Int
+  radiantWin      Boolean       @map("radiant_win")
+  patchId         Int           @map("patch_id") @db.SmallInt
+  avgRankTier     Int?          @map("avg_rank_tier") @db.SmallInt
+  leagueId        Int?          @map("league_id")
+  detailsStatus   DetailsStatus @default(PENDING) @map("details_status")
+  detailsAttempts Int           @default(0) @map("details_attempts") @db.SmallInt
+  // when the details can be requested (again)
+  detailsAfter    DateTime      @default(now()) @map("details_after") @db.Timestamptz
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  players         MatchPlayer[]
+
+  @@index([startTime])
+  @@index([detailsStatus, detailsAfter])
+  @@map("matches")
+}
+
+model MatchPlayer {
+  matchId       BigInt      @map("match_id")
+  // 0-4 radiant, 128-132 dire
+  playerSlot    Int         @map("player_slot") @db.SmallInt
+  heroId        Int         @map("hero_id") @db.SmallInt
+  win           Boolean
+  // copied from the match, so the stats read only this table
+  source        MatchSource
+  patchId       Int         @map("patch_id") @db.SmallInt
+  startTime     DateTime    @map("start_time") @db.Timestamptz
+  accountId     BigInt?     @map("account_id")
+  kills         Int?        @db.SmallInt
+  deaths        Int?        @db.SmallInt
+  assists       Int?        @db.SmallInt
+  // final inventory (item ids, without empty slots); empty until the details
+  items         Int[]       @db.SmallInt
+  neutralItemId Int?        @map("neutral_item_id") @db.SmallInt
+  // purchase order (parsed matches): item ids and their times (seconds)
+  purchaseItems Int[]       @map("purchase_items") @db.SmallInt
+  purchaseTimes Int[]       @map("purchase_times")
+  match         Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@id([matchId, playerSlot])
+  @@index([patchId, heroId])
+  @@map("match_players")
+}
+
