@@ -5,6 +5,9 @@ import { isAxiosError } from 'axios';
 import { z } from 'zod';
 import { Env } from '../config/env.validation.js';
 import {
+  abilitiesSchema,
+  abilityIdsSchema,
+  heroAbilitiesSchema,
   heroesSchema,
   itemsSchema,
   matchDetailsSchema,
@@ -94,6 +97,18 @@ export class OpenDotaClient {
 
   getPatches() {
     return this.get('/constants/patch', patchesSchema);
+  }
+
+  getAbilityIds() {
+    return this.get('/constants/ability_ids', abilityIdsSchema);
+  }
+
+  getAbilities() {
+    return this.get('/constants/abilities', abilitiesSchema);
+  }
+
+  getHeroAbilities() {
+    return this.get('/constants/hero_abilities', heroAbilitiesSchema);
   }
 
   private get<T>(

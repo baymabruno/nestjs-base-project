@@ -54,6 +54,8 @@ const matchPlayerSchema = z.object({
   item_neutral: id.nullish(),
   // only present in parsed matches
   purchase_log: z.array(purchaseSchema).nullish(),
+  // ability ids in the order they were leveled up, talents included
+  ability_upgrades_arr: z.array(id).nullish(),
 });
 export type MatchPlayer = z.infer<typeof matchPlayerSchema>;
 
@@ -95,6 +97,28 @@ export const itemsSchema = z.record(
   }),
 );
 export type ItemConstant = z.infer<typeof itemsSchema>[string];
+
+/** GET /constants/ability_ids: ability name by id (some keys are not ids) */
+export const abilityIdsSchema = z.record(z.string(), z.string());
+
+/** GET /constants/abilities, keyed by ability name */
+export const abilitiesSchema = z.record(
+  z.string(),
+  z.object({
+    dname: z.string().nullish(),
+    img: z.string().nullish(),
+  }),
+);
+
+/** GET /constants/hero_abilities, keyed by hero name (npc_dota_hero_x) */
+export const heroAbilitiesSchema = z.record(
+  z.string(),
+  z.object({
+    // only the talents are used (the abilities list mixes names and lists)
+    // level 1 to 4 of the talent tree (hero levels 10, 15, 20 and 25)
+    talents: z.array(z.object({ name: z.string(), level: id })),
+  }),
+);
 
 /** GET /constants/patch: game patches in release order */
 export const patchesSchema = z.array(

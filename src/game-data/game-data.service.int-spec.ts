@@ -37,6 +37,64 @@ describe('GameDataService', () => {
     expect(service.isLoaded).toBe(true);
   });
 
+  it('stores the abilities and the talent tree of each hero', async () => {
+    await service.sync();
+
+    // the key that is not a single id is left out
+    expect(await prisma.ability.count()).toBe(6);
+    expect(await prisma.ability.findUnique({ where: { id: 5004 } })).toEqual({
+      id: 5004,
+      name: 'antimage_blink',
+      displayName: 'Blink',
+      isTalent: false,
+    });
+    expect(await prisma.ability.findUnique({ where: { id: 6003 } })).toEqual({
+      id: 6003,
+      name: 'special_bonus_unique_antimage',
+      displayName: null,
+      isTalent: true,
+    });
+    // the talent without an id is left out
+    expect(
+      await prisma.heroTalent.findMany({
+        orderBy: [{ tier: 'asc' }, { slot: 'asc' }],
+        select: { abilityId: true, tier: true, slot: true },
+      }),
+    ).toEqual([
+      { abilityId: 6001, tier: 1, slot: 0 },
+      { abilityId: 6002, tier: 1, slot: 1 },
+      { abilityId: 6003, tier: 2, slot: 0 },
+      { abilityId: 6004, tier: 2, slot: 1 },
+    ]);
+  });
+
+  it('keeps the other data when the abilities fail', async () => {
+    const failing = new GameDataService(
+      prisma,
+      fakeOpenDota({
+        getAbilityIds: () => Promise.reject(new Error('offline')),
+      }),
+    );
+
+    await failing.sync();
+
+    expect(failing.isLoaded).toBe(true);
+    expect(await prisma.ability.count()).toBe(0);
+  });
+
+  it('syncs the abilities only when they are missing', async () => {
+    const getAbilityIds = vi.fn(fakeOpenDota().getAbilityIds);
+    const gameData = new GameDataService(
+      prisma,
+      fakeOpenDota({ getAbilityIds }),
+    );
+
+    await gameData.ensureAbilities();
+    await gameData.ensureAbilities();
+
+    expect(getAbilityIds).toHaveBeenCalledTimes(1);
+  });
+
   it('replaces the previous data', async () => {
     await service.sync();
     await service.sync();

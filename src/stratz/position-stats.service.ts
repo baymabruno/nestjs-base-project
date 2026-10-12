@@ -15,30 +15,15 @@ export class PositionStatsService {
   }
 
   /**
-   * Replaces the days returned by STRATZ (the latest day may still be
-   * incomplete in the previous sync). Returns how many rows were stored.
+   * Replaces the statistics with the latest day of STRATZ (it has whole days
+   * only, about a day behind). Returns how many rows were stored.
    */
-  async sync(days: number): Promise<number> {
-    const rows = await this.stratz.getHeroPositionDays(days);
-    if (rows.length === 0) return 0;
-    const firstDay = new Date(
-      Math.min(...rows.map((row) => row.day.getTime())),
-    );
-
+  async sync(): Promise<number> {
+    const rows = await this.stratz.getHeroPositionDays(1);
     const [, { count }] = await this.prisma.$transaction([
-      this.prisma.heroPositionDailyStat.deleteMany({
-        where: { day: { gte: firstDay } },
-      }),
+      this.prisma.heroPositionDailyStat.deleteMany(),
       this.prisma.heroPositionDailyStat.createMany({ data: rows }),
     ]);
-    return count;
-  }
-
-  /** Deletes the days before the date (retention) */
-  async deleteBefore(date: Date): Promise<number> {
-    const { count } = await this.prisma.heroPositionDailyStat.deleteMany({
-      where: { day: { lt: date } },
-    });
     return count;
   }
 }

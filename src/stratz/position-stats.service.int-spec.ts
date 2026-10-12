@@ -39,44 +39,25 @@ describe('PositionStatsService', () => {
     ).toBe(false);
   });
 
-  it('replaces the days returned and keeps the older ones', async () => {
+  it('replaces everything with the latest day', async () => {
     await new PositionStatsService(
       prisma,
-      fakeStratz([row('2026-10-01', 1), row('2026-10-09', 1, 50)]),
-    ).sync(30);
+      fakeStratz([row('2026-10-09', 1), row('2026-10-09', 2)]),
+    ).sync();
 
     const stored = await new PositionStatsService(
       prisma,
-      fakeStratz([row('2026-10-09', 1, 80), row('2026-10-10', 1)]),
-    ).sync(30);
+      fakeStratz([row('2026-10-10', 1, 80)]),
+    ).sync();
 
-    expect(stored).toBe(2);
-    const rows = await prisma.heroPositionDailyStat.findMany({
-      orderBy: { day: 'asc' },
-    });
+    expect(stored).toBe(1);
+    const rows = await prisma.heroPositionDailyStat.findMany();
     expect(
       rows.map((r) => [r.day.toISOString().slice(0, 10), r.matches]),
-    ).toEqual([
-      ['2026-10-01', 10],
-      ['2026-10-09', 80],
-      ['2026-10-10', 10],
-    ]);
+    ).toEqual([['2026-10-10', 80]]);
   });
 
   it('stores nothing when STRATZ has no data', async () => {
-    expect(await new PositionStatsService(prisma, fakeStratz()).sync(30)).toBe(
-      0,
-    );
-  });
-
-  it('deletes the days before a date', async () => {
-    const service = new PositionStatsService(
-      prisma,
-      fakeStratz([row('2026-09-01', 1), row('2026-10-10', 1)]),
-    );
-    await service.sync(30);
-
-    expect(await service.deleteBefore(new Date('2026-10-01'))).toBe(1);
-    expect(await prisma.heroPositionDailyStat.count()).toBe(1);
+    expect(await new PositionStatsService(prisma, fakeStratz()).sync()).toBe(0);
   });
 });

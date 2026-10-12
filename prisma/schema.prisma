@@ -36,6 +36,29 @@ model Item {
   @@map("items")
 }
 
+model Ability {
+  // OpenDota/Valve ability id (talents included)
+  id          Int     @id
+  // internal name, e.g. ancient_apparition_cold_feet
+  name        String  @unique
+  displayName String? @map("display_name")
+  isTalent    Boolean @map("is_talent")
+
+  @@map("abilities")
+}
+
+// talent tree of each hero: tier 1 to 4 (hero levels 10, 15, 20 and 25),
+// two options per tier (slot 0 and 1)
+model HeroTalent {
+  heroId    Int @map("hero_id") @db.SmallInt
+  abilityId Int @map("ability_id")
+  tier      Int @db.SmallInt
+  slot      Int @db.SmallInt
+
+  @@id([heroId, abilityId])
+  @@map("hero_talents")
+}
+
 model Patch {
   // OpenDota patch id (increases with each patch)
   id         Int      @id @db.SmallInt
@@ -45,7 +68,7 @@ model Patch {
   @@map("patches")
 }
 
-// ---- matches (kept for MATCH_RETENTION_DAYS) ----
+// ---- matches (public: PUBLIC_WINDOW_HOURS; pro: the current patch) ----
 
 enum MatchSource {
   PRO
@@ -90,26 +113,28 @@ model Match {
 }
 
 model MatchPlayer {
-  matchId       BigInt      @map("match_id")
+  matchId         BigInt      @map("match_id")
   // 0-4 radiant, 128-132 dire
-  playerSlot    Int         @map("player_slot") @db.SmallInt
-  heroId        Int         @map("hero_id") @db.SmallInt
-  win           Boolean
+  playerSlot      Int         @map("player_slot") @db.SmallInt
+  heroId          Int         @map("hero_id") @db.SmallInt
+  win             Boolean
   // copied from the match, so the stats read only this table
-  source        MatchSource
-  patchId       Int         @map("patch_id") @db.SmallInt
-  startTime     DateTime    @map("start_time") @db.Timestamptz
-  accountId     BigInt?     @map("account_id")
-  kills         Int?        @db.SmallInt
-  deaths        Int?        @db.SmallInt
-  assists       Int?        @db.SmallInt
+  source          MatchSource
+  patchId         Int         @map("patch_id") @db.SmallInt
+  startTime       DateTime    @map("start_time") @db.Timestamptz
+  accountId       BigInt?     @map("account_id")
+  kills           Int?        @db.SmallInt
+  deaths          Int?        @db.SmallInt
+  assists         Int?        @db.SmallInt
   // final inventory (item ids, without empty slots); empty until the details
-  items         Int[]       @db.SmallInt
-  neutralItemId Int?        @map("neutral_item_id") @db.SmallInt
+  items           Int[]       @db.SmallInt
+  neutralItemId   Int?        @map("neutral_item_id") @db.SmallInt
   // purchase order (parsed matches): item ids and their times (seconds)
-  purchaseItems Int[]       @map("purchase_items") @db.SmallInt
-  purchaseTimes Int[]       @map("purchase_times")
-  match         Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  purchaseItems   Int[]       @map("purchase_items") @db.SmallInt
+  purchaseTimes   Int[]       @map("purchase_times")
+  // ability ids in the order they were leveled up (talents included)
+  abilityUpgrades Int[]       @map("ability_upgrades")
+  match           Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
 
   @@id([matchId, playerSlot])
   @@index([patchId, heroId])
@@ -186,15 +211,15 @@ model HeroMatchupStat {
 // first purchase of each item by a hero, per time bucket (parsed matches):
 // 0 before the horn, then 5 minute windows (1: 0-5, 2: 5-10 ... 13: 60+)
 model HeroItemTimingStat {
-  patchId   Int         @map("patch_id") @db.SmallInt
-  source    MatchSource
-  heroId    Int         @map("hero_id") @db.SmallInt
-  itemId    Int         @map("item_id") @db.SmallInt
-  bucket    Int         @db.SmallInt
-  matches   Int
-  wins      Int
+  patchId Int         @map("patch_id") @db.SmallInt
+  source  MatchSource
+  heroId  Int         @map("hero_id") @db.SmallInt
+  itemId  Int         @map("item_id") @db.SmallInt
+  bucket  Int         @db.SmallInt
+  matches Int
+  wins    Int
   // sum of the purchase times (seconds), for the average
-  timeSum   BigInt      @map("time_sum")
+  timeSum BigInt      @map("time_sum")
 
   @@id([patchId, source, heroId, itemId, bucket])
   @@map("hero_item_timing_stats")
@@ -215,4 +240,67 @@ model HeroPositionDailyStat {
 
   @@id([day, position, rankBracket, heroId])
   @@map("hero_position_daily_stats")
+}
+
+// first 10 levels of abilities of a hero (comma separated ability ids, from
+// the matches with details)
+model HeroSkillBuildStat {
+  patchId Int         @map("patch_id") @db.SmallInt
+  source  MatchSource
+  heroId  Int         @map("hero_id") @db.SmallInt
+  build   String
+  matches Int
+  wins    Int
+
+  @@id([patchId, source, heroId, build])
+  @@map("hero_skill_build_stats")
+}
+
+// talents picked by each hero in ranked Divine and Immortal matches of the
+// latest STRATZ week, in every position (0) and in each one (1 to 5)
+model HeroTalentStat {
+  heroId    Int      @map("hero_id") @db.SmallInt
+  position  Int      @default(0) @db.SmallInt
+  abilityId Int      @map("ability_id")
+  matches   Int
+  wins      Int
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+
+  @@id([heroId, position, abilityId])
+  @@map("hero_talent_stats")
+}
+
+// ability names with the values filled in (STRATZ), e.g. "+200 Mana Void
+// Radius" instead of "+{s:bonus_mana_void_aoe_radius} Mana Void Radius"
+model AbilityDisplayName {
+  abilityId   Int    @id @map("ability_id")
+  displayName String @map("display_name")
+
+  @@map("ability_display_names")
+}
+
+// first purchase of each item by a hero in a position, per minute (STRATZ,
+// latest week, ranked Divine and Immortal; only the frequent cells)
+model HeroRoleItemTiming {
+  heroId   Int @map("hero_id") @db.SmallInt
+  position Int @db.SmallInt
+  itemId   Int @map("item_id") @db.SmallInt
+  minute   Int @db.SmallInt
+  matches  Int
+  wins     Int
+
+  @@id([heroId, position, itemId, minute])
+  @@map("hero_role_item_timings")
+}
+
+// starting items bought by a hero in a position (STRATZ, latest week)
+model HeroRoleStartingItem {
+  heroId   Int @map("hero_id") @db.SmallInt
+  position Int @db.SmallInt
+  itemId   Int @map("item_id") @db.SmallInt
+  matches  Int
+  wins     Int
+
+  @@id([heroId, position, itemId])
+  @@map("hero_role_starting_items")
 }

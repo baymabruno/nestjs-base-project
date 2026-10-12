@@ -39,6 +39,35 @@ export const fakeOpenDota = (overrides: Partial<OpenDotaClient> = {}) =>
       bfury: { id: 145, dname: 'Battle Fury', cost: 4100 },
     }),
     getPatches: async () => patches,
+    getAbilityIds: async () => ({
+      '5003': 'antimage_mana_break',
+      '5004': 'antimage_blink',
+      '6001': 'special_bonus_attack_speed_20',
+      '6002': 'special_bonus_agility_10',
+      '6003': 'special_bonus_unique_antimage',
+      '6004': 'special_bonus_hp_250',
+      '3060,1617': 'not_an_ability',
+    }),
+    getAbilities: async () => ({
+      antimage_mana_break: { dname: 'Mana Break', img: '/x.png' },
+      antimage_blink: { dname: 'Blink', img: '/y.png' },
+      special_bonus_attack_speed_20: { dname: '+20 Attack Speed' },
+      special_bonus_agility_10: { dname: '+10 Agility' },
+      special_bonus_unique_antimage: {},
+      special_bonus_hp_250: { dname: '+250 Health' },
+    }),
+    getHeroAbilities: async () => ({
+      npc_dota_hero_antimage: {
+        abilities: ['antimage_mana_break', 'antimage_blink'],
+        talents: [
+          { name: 'special_bonus_attack_speed_20', level: 1 },
+          { name: 'special_bonus_agility_10', level: 1 },
+          { name: 'special_bonus_unique_antimage', level: 2 },
+          { name: 'special_bonus_hp_250', level: 2 },
+          { name: 'special_bonus_missing', level: 3 },
+        ],
+      },
+    }),
     ...overrides,
   }) as unknown as OpenDotaClient;
 
@@ -97,6 +126,9 @@ export const matchDetails = (
   version: parsed ? 22 : null,
   players: [0, 1, 2, 3, 4, 128, 129, 130, 131, 132].map((slot, index) => ({
     ...player(slot, index + 1),
+    ability_upgrades_arr: [
+      5003, 5004, 5003, 5004, 5003, 5004, 5003, 5004, 5003, 6001, 5004,
+    ],
     purchase_log: parsed
       ? [
           { time: -89, key: 'tango' },
@@ -112,8 +144,28 @@ export const matchDetails = (
 export const fakeStratz = (
   rows: Awaited<ReturnType<StratzClient['getHeroPositionDays']>> = [],
   configured = true,
+  talents: Awaited<ReturnType<StratzClient['getHeroTalents']>> = [],
 ) =>
   ({
     isConfigured: configured,
     getHeroPositionDays: async () => rows,
+    getHeroTalents: async () => talents,
+    getRoleItemTimings: async () => [
+      {
+        heroId: 1,
+        position: 1,
+        itemId: 145,
+        minute: 14,
+        matches: 300,
+        wins: 160,
+      },
+    ],
+    getRoleStartingItems: async () => [
+      { heroId: 1, position: 1, itemId: 44, matches: 900, wins: 470 },
+    ],
+    getAbilityNames: async () =>
+      new Map([
+        [6001, '+20 Attack Speed'],
+        [6003, '+15% Mana Break Burn'],
+      ]),
   }) as unknown as StratzClient;
