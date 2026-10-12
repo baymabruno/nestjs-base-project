@@ -24,7 +24,7 @@
 
 ## Descrição
 
-Dota Metrics: estatísticas do meta de Dota 2. O sistema coleta partidas profissionais e públicas de alto rank pela [API do OpenDota](https://docs.opendota.com), guarda os últimos 30 dias em PostgreSQL e calcula, para o patch atual, a taxa de vitória e de escolha de cada herói e os itens mais usados, com o tempo médio de compra.
+Dota Metrics: estatísticas do meta de Dota 2. O sistema coleta partidas profissionais e públicas de alto rank pela [API do OpenDota](https://docs.opendota.com), guarda em PostgreSQL as partidas públicas das últimas 24 horas e as profissionais do patch atual, e calcula, para esse período, a taxa de vitória e de escolha de cada herói e os itens mais usados, com o tempo médio de compra.
 
 Construído sobre o [nestjs-base-project](https://github.com/baymabruno/nestjs-base-project): TypeScript com o framework [Nest](https://github.com/nestjs/nest) 12 (ESM), autenticação JWT com RS256 e JWKS, rastreamento de requisições, API versionada, validação com Zod e Docker com PM2. Todo o sistema roda em Docker.
 
@@ -127,64 +127,66 @@ A coleta roda no processo **worker** (`src/worker.ts`), separado da API. A API p
 |---|---|---|
 | Partidas profissionais | ao iniciar e a cada `PRO_MATCHES_INTERVAL_MINUTES` | `GET /proMatches`: grava as partidas novas de ligas |
 | Partidas públicas | ao iniciar e a cada `PUBLIC_MATCHES_INTERVAL_MINUTES` | `GET /publicMatches`: grava as partidas ranqueadas All Pick com rank médio a partir de `PUBLIC_MIN_RANK_TIER`, já com os heróis de cada time |
-| Detalhes | a cada minuto | `GET /matches/{id}`: itens finais e ordem de compra de cada jogador; profissionais primeiro, depois as mais recentes |
-| Estatísticas | ao iniciar e a cada `STATS_INTERVAL_MINUTES` | recalcula as tabelas do patch atual |
-| Dados do jogo | diariamente às 5h | heróis, itens e patches |
-| Heróis por função (STRATZ) | ao iniciar e a cada `STRATZ_INTERVAL_HOURS` | uma requisição à API GraphQL do STRATZ com partidas e vitórias de cada herói por dia, posição (1 a 5) e rank (Divine e Immortal), em All Pick ranqueado. Só roda com `STRATZ_API_TOKEN` |
-| Retenção | diariamente às 4h | apaga as partidas com mais de `MATCH_RETENTION_DAYS` dias |
+| Detalhes | a cada minuto | `GET /matches/{id}`: itens finais, ordem de compra e ordem de habilidades de cada jogador. As requisições do minuto são divididas ao meio entre profissionais e públicas, e o que um lado não usa vai para o outro; dentro de cada lado, as mais recentes primeiro |
+| Estatísticas | ao iniciar e a cada `STATS_INTERVAL_MINUTES` | recalcula as tabelas com as partidas públicas das últimas `PUBLIC_WINDOW_HOURS` horas e as profissionais do patch atual |
+| Dados do jogo | diariamente às 5h | heróis, itens, patches, habilidades e a árvore de talentos de cada herói. As habilidades são sincronizadas à parte: se falharem, a coleta continua e elas são tentadas de novo na rodada seguinte |
+| Heróis por função e talentos (STRATZ) | ao iniciar e a cada `STRATZ_INTERVAL_HOURS` | requisições à API GraphQL do STRATZ: partidas e vitórias de cada herói por posição (1 a 5) e rank (Divine e Immortal) no último dia completo, em All Pick ranqueado; os talentos escolhidos e os itens (iniciais e minuto da compra) por herói e posição na última semana; e os nomes das habilidades e talentos com os valores preenchidos. Só roda com `STRATZ_API_TOKEN` |
+| Limpeza | ao iniciar e a cada hora | apaga as partidas públicas com mais de `PUBLIC_WINDOW_HOURS` horas e as profissionais de patches anteriores, com os seus jogadores. O banco guarda só o que entra nas estatísticas |
 
 **Cota do OpenDota.** Sem chave de API, o limite é de 60 requisições por minuto e 3.000 por dia, contados por IP. O cliente faz uma requisição por vez, com intervalo de `OPENDOTA_REQUEST_INTERVAL_MS`, e acompanha os cabeçalhos `x-rate-limit-remaining-minute` e `x-rate-limit-remaining-day`. Quando restam 10 requisições ou menos no minuto, ou quando a API recusa uma requisição (429), ele espera um minuto. Assim o worker e o backfill, que dividem o mesmo limite, freiam juntos. A cada minuto, os detalhes usam a cota restante dividida pelos minutos até a meia-noite (UTC), guardando `OPENDOTA_DAILY_RESERVE` requisições para as listas. A cota fica distribuída ao longo do dia, em vez de acabar nas primeiras horas.
 
 **Partidas processadas.** A ordem de compra (`purchase_log`) só existe nas partidas que o OpenDota processou a partir do replay. As profissionais costumam ser processadas alguns minutos depois do fim; enquanto isso, a partida é consultada de novo (até 5 vezes, com espera crescente). As públicas raramente são processadas e ficam só com os itens finais.
 
-**Carga de partidas passadas (backfill).** O worker só coleta as partidas novas. Para carregar as dos últimos dias, execute com a aplicação no ar:
+**Período das estatísticas.** As partidas públicas contam nas últimas `PUBLIC_WINDOW_HOURS` horas (padrão 24): são milhares por dia, e o meta do momento muda rápido. As profissionais são bem menos numerosas e contam no patch atual inteiro. Ao sair um patch novo, as profissionais do anterior são apagadas na limpeza seguinte e a contagem recomeça.
+
+**Carga de partidas passadas (backfill).** O worker só coleta as partidas novas. Para carregar as que faltam no período das estatísticas, execute com a aplicação no ar:
 
 ```bash
-./setup.sh backfill        # último dia
-./setup.sh backfill 5      # últimos 5 dias (até MATCH_RETENTION_DAYS)
+./setup.sh backfill
 ```
 
-O comando volta no tempo página por página (`less_than_match_id`). As partidas profissionais vão da mais recente até o início do período, o que custa poucas requisições, porque cada página cobre alguns dias. As públicas partem da mais antiga já gravada, então uma nova execução continua de onde a anterior parou. Elas são numerosas: cada página de 100 cobre cerca de 2 minutos de jogo, e um dia passa de 800 páginas. Por isso, cada execução usa no máximo metade das requisições que restam no dia, deixando o resto para o worker buscar os detalhes, e avisa quando o período ficou incompleto. Os detalhes (itens) das partidas novas são buscados pelo worker, dentro da cota diária.
+O comando não tem parâmetro: carrega as partidas públicas das últimas `PUBLIC_WINDOW_HOURS` horas e as profissionais desde o lançamento do patch atual. Ele volta no tempo página por página (`less_than_match_id`). As profissionais vão da mais recente até o início do patch, o que custa poucas requisições, porque cada página de 100 cobre algumas horas ou dias. Os detalhes de cada partida, porém, custam uma requisição cada: num patch com meses, são milhares de partidas, buscadas aos poucos pelo worker com metade da cota de detalhes. As públicas partem da mais antiga já gravada, então uma nova execução continua de onde a anterior parou. Elas são numerosas: cada página de 100 cobre cerca de 2 minutos de jogo, e um dia passa de 800 páginas. Por isso, cada execução usa no máximo metade das requisições que restam no dia, deixando o resto para o worker buscar os detalhes, e avisa quando o período ficou incompleto.
 
 **Posições pelo STRATZ.** O OpenDota só informa a posição de cada jogador nas partidas processadas, algumas centenas por dia. O STRATZ calcula a posição de todas as partidas ranqueadas e entrega os totais por herói, posição e rank, cerca de 44 mil partidas Divine e Immortal por dia, numa única requisição. É a mesma fonte do Dota2ProTracker. O token é gratuito (https://stratz.com/api, com login pela Steam); sem ele, a seção por função fica indisponível e o resto funciona normalmente.
 
 **Facetas.** No patch 7.41, todas as facetas estão descontinuadas no OpenDota e as partidas não informam a faceta escolhida, então elas não são coletadas.
 
-**Desempenho.** Os itens ficam em arrays (`smallint[]`) na linha de cada jogador, e o patch e a data da partida são copiados para essa linha, então as estatísticas leem uma única tabela, sem join. O worker agrega as estatísticas no próprio PostgreSQL e grava o resultado em tabelas pequenas (`hero_stats` e `hero_item_stats`), e a API só lê essas tabelas. Cada recálculo apaga as estatísticas anteriores, então só o meta do patch atual fica disponível.
+**Desempenho.** Os itens ficam em arrays (`smallint[]`) na linha de cada jogador, e o patch e a data da partida são copiados para essa linha, então as estatísticas leem uma única tabela, sem join. O worker agrega as estatísticas no próprio PostgreSQL e grava o resultado em tabelas pequenas (`hero_stats`, `hero_item_stats`, `hero_daily_stats` e outras), e a API só lê essas tabelas. Cada recálculo apaga as estatísticas anteriores, então só o meta do patch atual fica disponível.
 
 ## Site
 
 O site (`web/`) mostra as estatísticas em páginas. É um projeto Next.js separado, que roda no container `dota-metrics-web` (http://localhost:3002, porta `WEB_PORT`) e lê a API pela rede do Docker Compose. Os endereços de cada serviço no navegador estão em [Endereços](docs/DESENVOLVIMENTO.md#endereços), no guia de desenvolvimento. As respostas da API ficam em cache por 15 minutos, o mesmo intervalo do recálculo das estatísticas.
 
-**Página de meta (`/meta`)**, inspirada na página de meta do [Dota2ProTracker](https://dota2protracker.com/meta) e nas tendências do [STRATZ](https://stratz.com/heroes/meta/trends):
+**Página de meta (`/meta`)**, inspirada na página de meta do [Dota2ProTracker](https://dota2protracker.com/meta). Mostra as partidas públicas das últimas 24 horas e as profissionais do patch atual (veja [Período das estatísticas](#coleta-e-estatísticas)):
 
 | Coluna | Cálculo |
 |---|---|
-| Partidas, win rate e pick rate | No período e nos filtros escolhidos |
-| WR ajustada (ordem padrão) | Limite inferior do intervalo de Wilson (95%) da win rate: a win rate que a amostra garante. Com poucas partidas fica bem abaixo da win rate, então amostras pequenas não chegam ao topo por acaso |
+| Partidas, win rate e pick rate | Nos filtros escolhidos |
+| Nota e tier (primeira coluna e ordem padrão) | A mesma fórmula dos heróis por função (abaixo), entre os heróis da tabela. Usa a win rate ajustada: o limite inferior do intervalo de Wilson (95%) da win rate, ou seja, a win rate que a amostra garante. Com poucas partidas ela fica bem abaixo da win rate, então amostras pequenas não chegam ao topo por acaso |
 | Win rate por duração | Partidas de até 35 minutos, de 35 a 50 e de 50 ou mais |
-| Tendência | Win rate por dia e a diferença entre a segunda e a primeira metade do período. Só aparece quando cada metade tem pelo menos 30 partidas do herói: com menos, uma diferença de dezenas de pontos pode ser puro acaso |
 
-**Top heróis por função**, no topo da página, inspirado no Dota2ProTracker: abas Todas, Carry, Mid, Offlane, Support e Hard Support, com os 6 melhores heróis em cartões (partidas, win rate, nota e tier). Usa os dados do STRATZ, segue os filtros de rank e período da página e não aparece com o filtro de partidas profissionais. A nota tem fórmula aberta:
+**Top heróis por função**, no topo da página, inspirado no Dota2ProTracker: abas Todas, Carry, Mid, Offlane, Support e Hard Support, com os 6 melhores heróis em cartões (partidas, win rate, nota e tier). Usa os dados do STRATZ do último dia completo, segue o filtro de rank da página e não aparece com o filtro de partidas profissionais. Ao escolher uma função, a tabela abaixo passa a mostrar os heróis dela, com a nota de cada um. Os cartões mostram os 6 heróis de maior nota, do maior para o menor win rate. A nota tem fórmula aberta:
 
 - nota (0 a 100) = 70% do percentil da win rate ajustada (Wilson) + 30% do percentil da pick rate na função, entre os heróis da função com pelo menos 100 partidas;
 - tier: S a partir de 80, A a partir de 65, B a partir de 50, C a partir de 35 e D abaixo disso.
 
 O percentil é a posição do herói entre os da função, de 0 a 1. Diferente de uma escala entre o mínimo e o máximo, ele não é distorcido por poucos heróis extremos. Como é relativa à função, a nota compara heróis da mesma função: um offlaner muito escolhido, com win rate acima da mediana dos offlaners, pode ter nota alta mesmo com win rate abaixo de 50%.
 
-A tabela de todos os heróis aceita ordenação por várias colunas: o primeiro clique num título ordena do maior para o menor, o segundo do menor para o maior e o terceiro tira a coluna da ordenação. As colunas clicadas desempatam na ordem dos cliques (por exemplo, partidas e depois win rate), e sem nenhuma vale a ordem padrão, pela WR ajustada.
+A tabela de todos os heróis aceita ordenação por várias colunas: o primeiro clique num título ordena do maior para o menor, o segundo do menor para o maior e o terceiro tira a coluna da ordenação. As colunas clicadas desempatam na ordem dos cliques (por exemplo, partidas e depois win rate), e sem nenhuma vale a ordem padrão, pela nota. Ao escolher uma função, a tabela mantém as mesmas colunas, com os dados da função (STRATZ); só as colunas de duração, que o STRATZ não informa por função, mostram o herói em todas as funções.
 
-Os filtros (fonte, rank, período, amostra mínima e função) ficam na URL, então uma visão pode ser compartilhada por link. A API calcula tudo a partir da tabela `hero_daily_stats` (herói × dia × fonte × rank × duração), recalculada pelo worker.
+Os filtros (fonte, rank, amostra mínima e função) ficam na URL; a amostra mínima começa em "Todas". Assim, uma visão pode ser compartilhada por link. A API calcula tudo a partir da tabela `hero_daily_stats` (herói × dia × fonte × rank × duração), recalculada pelo worker.
 
-**Página do herói (`/heroes/<nome>`, por exemplo `/heroes/pudge`)**, aberta pelo nome do herói na página de meta, nos moldes das páginas de herói do Dota2ProTracker e dos matchups do STRATZ. Usa os últimos 30 dias do patch, com o filtro de fonte:
+**Página do herói (`/heroes/<nome>`, por exemplo `/heroes/pudge`)**, aberta pelo nome do herói na página de meta, nos moldes das páginas de herói do Dota2ProTracker e dos matchups do STRATZ. Tem os mesmos filtros da página de meta (fonte, rank e amostra mínima). O rank vale para o resumo e as funções; builds, itens e confrontos juntam todos os ranks, porque essas tabelas não separam o rank. A amostra mínima vale para os itens e os confrontos:
 
 | Seção | Cálculo |
 |---|---|
-| Resumo, duração e tendência | Os mesmos números da página de meta, com a posição do herói no meta |
+| Funções (topo da página) | O herói em todas as funções no último dia completo de partidas ranqueadas Divine e Immortal (STRATZ), como no topo da página de herói do Dota2ProTracker: win rate e partidas no total e em cada posição, a nota e o tier da função (os mesmos da página de meta, com 100 partidas ou mais), a parcela das partidas do herói em cada uma e o destaque da mais jogada. Cada função é clicável: com uma escolhida, o resumo (partidas, win rate, WR ajustada, pick rate, posição e nota na função), os talentos, os itens iniciais e o tempo de compra passam a ser da função (STRATZ). Builds, itens finais, duração e confrontos continuam com todas as funções, porque o OpenDota não informa a função do jogador |
+| Resumo e duração | Os mesmos números da página de meta, com a posição do herói entre os que atingem a amostra mínima |
+| Habilidades e talentos | As sequências mais comuns dos 10 primeiros níveis, com partidas e win rate (campo `ability_upgrades_arr` dos detalhes das partidas, gravado desde esta versão: a amostra cresce a cada dia), e a árvore de talentos dos níveis 10, 15, 20 e 25, com a escolha e a win rate de cada lado em partidas ranqueadas Divine e Immortal da última semana (STRATZ). Em cada nível, a opção mais escolhida e a de maior win rate são marcadas, ou "escolha principal" quando são a mesma |
 | Itens iniciais | Itens comprados antes do início da partida na maioria das vezes |
 | Itens finais | Itens a partir de 1.000 de ouro no inventário final: uso (parcela das partidas com os itens conhecidos), win rate e minuto médio da compra |
 | Tempo de compra × win rate | Win rate pelo minuto da primeira compra de cada item, em faixas de 5 minutos (tabela `hero_item_timing_stats`). Só usa as partidas com a ordem de compra, então a amostra é menor |
-| Bom contra, fraco contra e melhores aliados | Win rate do herói contra cada inimigo e com cada aliado, com no mínimo 30 partidas (tabela `hero_matchup_stats`, de todas as partidas). "Bom contra" e os aliados são ordenados pelo limite inferior de Wilson; "fraco contra", pelo limite superior, ou seja, a win rate é baixa mesmo no melhor caso da amostra |
+| Bom contra, fraco contra e melhores aliados | Win rate do herói contra cada inimigo e com cada aliado, com a amostra mínima escolhida (tabela `hero_matchup_stats`, de todas as partidas). "Bom contra" e os aliados são ordenados pelo limite inferior de Wilson; "fraco contra", pelo limite superior, ou seja, a win rate é baixa mesmo no melhor caso da amostra |
 
 ## Endpoints
 
@@ -197,11 +199,14 @@ As rotas da API ficam sob o prefixo `/api/v1`. A página inicial, o health check
 | `POST` | `/api/v1/auth/refresh` | Troca um refresh token por um novo par de tokens |
 | `GET` | `/api/v1/auth/profile` | Dados do usuário logado (requer a role `admin`) |
 | `GET` | `/api/v1/meta` | Patch das estatísticas, quando foram calculadas e quantas partidas incluem |
-| `GET` | `/api/v1/meta/roles` | Heróis por função (dados do STRATZ), com nota de 0 a 100 e tier. Filtros: `position` (1 a 5), `bracket`, `days` e `minMatches` (padrão 100) |
-| `GET` | `/api/v1/meta/heroes` | Página de meta: heróis num período (`days`, de 1 a 30), com win rate ajustada, pick rate, win rate por duração e tendência diária. Filtros: `source`, `bracket` (`divine` ou `immortal`) e `minMatches` |
+| `GET` | `/api/v1/meta/roles` | Heróis por função (dados do STRATZ), com nota de 0 a 100 e tier. Último dia completo. Filtros: `position` (1 a 5), `bracket` e `minMatches` (padrão 100) |
+| `GET` | `/api/v1/meta/heroes` | Página de meta: heróis do patch (públicas das últimas `PUBLIC_WINDOW_HOURS` horas e profissionais do patch inteiro), com win rate ajustada, pick rate e win rate por duração. Filtros: `source`, `bracket` (`divine` ou `immortal`) e `minMatches` |
 | `GET` | `/api/v1/heroes` | Taxa de vitória e de escolha de cada herói. Filtros: `source` (`pro` ou `public`) e `minMatches` |
 | `GET` | `/api/v1/heroes/:heroId/matchups` | Página do herói: win rate contra cada inimigo e com cada aliado, com o intervalo de Wilson e a diferença para a win rate geral. Filtros: `source` e `minMatches` |
 | `GET` | `/api/v1/heroes/:heroId/item-timings` | Página do herói: itens comprados, com a win rate pelo minuto da primeira compra (faixas de 5 minutos), nas partidas com a ordem de compra. Filtros: `source`, `minMatches` e `minItemCost` |
+| `GET` | `/api/v1/heroes/:heroId/roles` | Página do herói: o herói em cada função (STRATZ), com partidas, win rate, parcela das partidas do herói a posição e a nota na função (só com 100 partidas ou mais na função), no último dia completo. Filtro: `bracket` |
+| `GET` | `/api/v1/heroes/:heroId/abilities` | Página do herói: as sequências de habilidades mais comuns dos 10 primeiros níveis (partidas com detalhes, filtro `source`) e a árvore de talentos com a escolha e a win rate de cada opção (STRATZ), em todas as funções ou numa (`position`) |
+| `GET` | `/api/v1/heroes/:heroId/role-items` | Página do herói com uma função escolhida: itens iniciais e win rate pelo minuto da primeira compra de cada item na função (STRATZ, última semana). Filtros: `position` (obrigatório) e `minItemCost` |
 | `GET` | `/api/v1/heroes/:heroId` | Estatísticas do herói e os itens do inventário final, com a taxa de vitória e o tempo médio de compra. Filtros: `source`, `minMatches` e `minItemCost` |
 | `GET` | `/.well-known/jwks.json` | Chave pública para validar os tokens (JWKS) |
 | `GET` | `/health` | Health check |
@@ -341,7 +346,7 @@ A referência completa, com o padrão, a descrição de cada variável e como ap
 | Autenticação | `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN` |
 | Observabilidade | `OBSERVE_APP_KEY`, `OBSERVE_APP_SECRET`, `OBSERVE_SERVICE_ID` |
 | API do OpenDota | `OPENDOTA_API_URL`, `OPENDOTA_API_KEY`, `OPENDOTA_REQUEST_INTERVAL_MS`, `OPENDOTA_DAILY_RESERVE` |
-| Coleta de partidas | `MATCH_RETENTION_DAYS`, `PRO_MATCHES_INTERVAL_MINUTES`, `PUBLIC_MATCHES_INTERVAL_MINUTES`, `PUBLIC_MIN_RANK_TIER`, `DETAILS_PER_MINUTE`, `STATS_INTERVAL_MINUTES` |
+| Coleta de partidas | `PUBLIC_WINDOW_HOURS`, `PRO_MATCHES_INTERVAL_MINUTES`, `PUBLIC_MATCHES_INTERVAL_MINUTES`, `PUBLIC_MIN_RANK_TIER`, `DETAILS_PER_MINUTE`, `STATS_INTERVAL_MINUTES` |
 | API do STRATZ | `STRATZ_API_URL`, `STRATZ_API_TOKEN`, `STRATZ_INTERVAL_HOURS` |
 | Banco de dados | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`, `POSTGRES_PORT`, `POSTGRES_CPU_LIMIT`, `POSTGRES_MEMORY_LIMIT` |
 | Metabase | `METABASE_PORT`, `METABASE_ADMIN_EMAIL`, `METABASE_ADMIN_PASSWORD`, `METABASE_READER_PASSWORD` |

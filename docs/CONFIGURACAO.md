@@ -96,13 +96,13 @@ Fonte dos heróis por função (posições 1 a 5) da página de meta. Veja [Cole
 |---|---|---|
 | `STRATZ_API_URL` | `https://api.stratz.com/graphql` | Endereço da API GraphQL |
 | `STRATZ_API_TOKEN` | vazio | Token da API, gratuito em https://stratz.com/api (login pela Steam). Sem ele, os dados por função não são coletados e a página de meta os mostra como indisponíveis. É um segredo: fica só no `.env` |
-| `STRATZ_INTERVAL_HOURS` | `6` | Horas entre as consultas. Cada consulta é uma única requisição, com os últimos `MATCH_RETENTION_DAYS` dias |
+| `STRATZ_INTERVAL_HOURS` | `6` | Horas entre as consultas. Cada consulta faz algumas dezenas de requisições (até 50 combinações de herói e posição por requisição): os heróis por função do último dia completo, os talentos e os itens por função da última semana e os nomes das habilidades |
 
 ## Coleta de partidas (worker)
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `MATCH_RETENTION_DAYS` | `30` | Dias de partidas mantidos no banco. As mais antigas são apagadas diariamente às 4h. Também é o período máximo do `./setup.sh backfill` |
+| `PUBLIC_WINDOW_HOURS` | `24` | Horas de partidas públicas nas estatísticas, de `1` a `168`. As mais antigas são apagadas a cada hora (e quando o worker sobe), deixando o banco só com o que é usado. As profissionais, bem menos numerosas, contam no patch atual inteiro, e as de patches anteriores são apagadas. Também é o período das públicas no `./setup.sh backfill` |
 | `PRO_MATCHES_INTERVAL_MINUTES` | `15` | Minutos entre as consultas das partidas profissionais mais recentes. Cada consulta custa uma requisição e traz até 100 partidas |
 | `PUBLIC_MATCHES_INTERVAL_MINUTES` | `5` | Minutos entre as consultas das partidas públicas mais recentes. Cada consulta custa uma requisição e traz até 100 partidas; com `5`, são 288 requisições por dia |
 | `PUBLIC_MIN_RANK_TIER` | `70` | Rank médio mínimo das partidas públicas, de `10` a `80`. A dezena é a medalha (1 Herald, 2 Guardian, 3 Crusader, 4 Archon, 5 Legend, 6 Ancient, 7 Divine, 8 Immortal) e a unidade, as estrelas. Valores menores trazem mais partidas, mas menos representativas do meta de alto nível. Vale também para o backfill |

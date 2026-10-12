@@ -8,5 +8,5 @@ Roda em Docker junto com o resto do sistema: veja o [guia de desenvolvimento](..
 
 | Página | Descrição |
 |---|---|
-| `/meta` | Top heróis por função (dados do STRATZ, com nota e tier) e todos os heróis do patch atual: win rate, win rate ajustada, pick rate, win rate por duração e tendência, com filtros de fonte, rank, período, amostra mínima e função |
-| `/heroes/<nome>` | Um herói: resumo, itens iniciais e finais, tempo de compra × win rate e matchups (bom contra, fraco contra e melhores aliados) |
+| `/meta` | Top heróis por função (dados do STRATZ, com nota e tier) e todos os heróis do patch atual na mesma tabela, com ou sem função escolhida: nota e tier, win rate, pick rate e win rate por duração (públicas das últimas 24 horas e profissionais do patch atual), com filtros de fonte, rank, amostra mínima e função |
+| `/heroes/<nome>` | Um herói, com os filtros de fonte, rank e amostra mínima: funções clicáveis (win rate, partidas e nota em cada posição; ao escolher uma, resumo, talentos e itens passam a ser da função), resumo, habilidades e talentos, itens iniciais e finais, tempo de compra × win rate e matchups (bom contra, fraco contra e melhores aliados) |

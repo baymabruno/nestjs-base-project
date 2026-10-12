@@ -145,7 +145,7 @@ O PostgreSQL roda no container `dota-metrics-postgres`, sem porta exposta no ser
 
 As migrations são aplicadas pelo container da aplicação ao iniciar (`prisma migrate deploy`). Se uma migration falhar, o container não sobe; veja o erro nos logs do Docker (`docker logs dota-metrics`).
 
-O banco guarda os últimos `MATCH_RETENTION_DAYS` dias de partidas, que podem ser coletados de novo do OpenDota. Mesmo assim, para não perder o histórico, faça backups periódicos:
+O banco guarda as partidas públicas das últimas `PUBLIC_WINDOW_HOURS` horas e as profissionais do patch atual, que podem ser coletadas de novo do OpenDota. Mesmo assim, para não perder o histórico, faça backups periódicos:
 
 ```bash
 docker exec dota-metrics-postgres sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB"' > dota-metrics.dump
@@ -159,11 +159,10 @@ docker exec -i dota-metrics-postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$
 
 ## Carga de partidas passadas
 
-Com a aplicação no ar, carregue as partidas do último dia, ou de mais dias, até `MATCH_RETENTION_DAYS`:
+Com a aplicação no ar, carregue as partidas que faltam no período das estatísticas (públicas das últimas `PUBLIC_WINDOW_HOURS` horas e profissionais do patch atual):
 
 ```bash
 ./setup.sh backfill prod
-./setup.sh backfill 3 prod
 ```
 
 Veja como o comando funciona em [Coleta e estatísticas](../README.md#coleta-e-estatísticas) no README.
