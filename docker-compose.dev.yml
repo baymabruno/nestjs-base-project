@@ -42,6 +42,36 @@ services:
     networks:
       - nest_network
 
+  # Metabase: dashboards over the database (optional, ./setup.sh metabase)
+  metabase:
+    container_name: dota-metrics-metabase
+    image: metabase/metabase:v0.64.1.5@sha256:08b1ebc81765c42f936acd4a83db4178e403805f9c473650e974a2b70cf38d37
+    # not started by the other commands: it needs about 1GB of memory
+    profiles: [metabase]
+    restart: on-failure
+    environment:
+      # Metabase's own data (users, questions, dashboards) in the "metabase"
+      # database of the postgres service, created by ./setup.sh metabase
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: 5432
+      MB_DB_DBNAME: metabase
+      MB_DB_USER: ${POSTGRES_USER}
+      MB_DB_PASS: ${POSTGRES_PASSWORD}
+      # no sample database and example dashboards
+      MB_LOAD_SAMPLE_CONTENT: 'false'
+      MB_ANON_TRACKING_ENABLED: 'false'
+      MB_CHECK_FOR_UPDATES: 'false'
+      MB_SITE_LOCALE: pt_BR
+      JAVA_TIMEZONE: America/Sao_Paulo
+    ports:
+      - ${METABASE_PORT:-3001}:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nest_network
+
 #volumes
 volumes:
   postgres-data:
