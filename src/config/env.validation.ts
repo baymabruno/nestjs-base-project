@@ -57,6 +57,19 @@ export const envSchema = z
     DATABASE_URL: z
       .string()
       .regex(/^postgres(ql)?:\/\/.+/, 'must be a postgresql:// connection URL'),
+    // OpenDota API (https://docs.opendota.com)
+    OPENDOTA_API_URL: z.url().default('https://api.opendota.com/api'),
+    // optional: raises the request limits (paid plan)
+    OPENDOTA_API_KEY: z
+      .string()
+      .optional()
+      .transform((value) => value || undefined),
+    // minimum time between requests; 1100ms stays under 60 requests/minute
+    OPENDOTA_REQUEST_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .nonnegative()
+      .default(1100),
     THROTTLE_TTL: z.coerce.number().int().positive().default(60000),
     THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
     // observability (@nestjs/observe): enabled only when key and secret are set
