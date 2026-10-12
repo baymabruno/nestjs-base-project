@@ -3,7 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { ZodError } from 'zod';
 import { Env } from '../config/env.validation.js';
-import { OpenDotaClient, OpenDotaRateLimitError } from './opendota.client.js';
+import {
+  MINUTE_RESERVE,
+  OpenDotaClient,
+  OpenDotaRateLimitError,
+} from './opendota.client.js';
 
 interface FakeResponse {
   status?: number;
@@ -106,14 +110,65 @@ describe('OpenDotaClient', () => {
     expect(client.remainingDailyRequests).toBe(2500);
   });
 
-  it('reports the rate limit', async () => {
-    respond = () => ({ status: 429 });
+  it('reports the rate limit with the requests left today', async () => {
+    respond = () => ({
+      status: 429,
+      headers: { 'x-rate-limit-remaining-day': '2400' },
+    });
     const client = createClient();
 
     await expect(client.getMatch(1)).rejects.toBeInstanceOf(
       OpenDotaRateLimitError,
     );
-    expect(client.remainingDailyRequests).toBe(0);
+    // the per-minute limit does not mean the daily quota is over
+    expect(client.remainingDailyRequests).toBe(2400);
+  });
+
+  it('waits a minute after a rate limit', async () => {
+    vi.useFakeTimers();
+    const client = createClient();
+    respond = () => ({ status: 429 });
+    await expect(client.getProMatches()).rejects.toThrow();
+
+    respond = () => ({ data: [] });
+    const next = client.getProMatches();
+    await vi.advanceTimersByTimeAsync(59_000);
+    expect(requests).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    await next;
+    expect(requests).toHaveLength(2);
+  });
+
+  it('waits for the next minute when few requests are left in it', async () => {
+    vi.useFakeTimers();
+    const client = createClient();
+    respond = () => ({
+      data: [],
+      headers: { 'x-rate-limit-remaining-minute': String(MINUTE_RESERVE) },
+    });
+    await client.getProMatches();
+
+    const next = client.getProMatches();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(requests).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await next;
+    expect(requests).toHaveLength(2);
+  });
+
+  it('does not wait while the minute has requests left', async () => {
+    const client = createClient();
+    respond = () => ({
+      data: [],
+      headers: { 'x-rate-limit-remaining-minute': '40' },
+    });
+
+    await client.getProMatches();
+    await client.getProMatches();
+
+    expect(requests).toHaveLength(2);
   });
 
   it('rethrows other errors', async () => {

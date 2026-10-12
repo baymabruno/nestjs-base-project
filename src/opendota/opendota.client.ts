@@ -29,11 +29,17 @@ export interface PublicMatchesQuery {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const MINUTE_MS = 60 * 1000;
+// requests left in the minute that make the client wait for the next one
+export const MINUTE_RESERVE = 10;
+
 /**
  * OpenDota API client. Requests run one at a time, spaced by
  * OPENDOTA_REQUEST_INTERVAL_MS, to respect the per-minute limit (60 without
- * an API key). The responses are validated, so a change in the API fails here
- * instead of storing wrong data.
+ * an API key). The limit is per IP, shared by the worker and the backfill:
+ * when the API reports few requests left in the minute, or refuses one (429),
+ * the client waits a minute. The responses are validated, so a change in the
+ * API fails here instead of storing wrong data.
  */
 @Injectable()
 export class OpenDotaClient {
@@ -42,6 +48,8 @@ export class OpenDotaClient {
   private readonly interval: number;
   private queue: Promise<unknown> = Promise.resolve();
   private lastRequestAt = 0;
+  // no request before this time (per-minute limit)
+  private notBefore = 0;
   private remainingToday: number | null = null;
 
   constructor(
@@ -104,7 +112,8 @@ export class OpenDotaClient {
     schema: z.ZodType<T>,
     params: Record<string, number | undefined>,
   ): Promise<T> {
-    const wait = this.lastRequestAt + this.interval - Date.now();
+    const wait =
+      Math.max(this.lastRequestAt + this.interval, this.notBefore) - Date.now();
     if (wait > 0) await sleep(wait);
     this.lastRequestAt = Date.now();
 
@@ -112,20 +121,28 @@ export class OpenDotaClient {
       const response = await this.http.axiosRef.get<unknown>(path, {
         params: { ...params, api_key: this.apiKey },
       });
-
-      const remaining = Number(
-        response.headers['x-rate-limit-remaining-day'] ?? NaN,
-      );
-      if (Number.isFinite(remaining)) this.remainingToday = remaining;
-
+      this.trackLimits(response.headers);
       return schema.parse(response.data);
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 429) {
-        this.remainingToday = 0;
-        this.logger.warn(`Rate limit reached on ${path}`);
+        this.trackLimits(error.response.headers);
+        this.notBefore = Date.now() + MINUTE_MS;
+        this.logger.warn(`Rate limit reached on ${path}, waiting a minute`);
         throw new OpenDotaRateLimitError();
       }
       throw error;
+    }
+  }
+
+  private trackLimits(headers: Record<string, unknown>) {
+    const header = (name: string) => Number(headers[name] ?? NaN);
+
+    const today = header('x-rate-limit-remaining-day');
+    if (Number.isFinite(today)) this.remainingToday = today;
+
+    const minute = header('x-rate-limit-remaining-minute');
+    if (Number.isFinite(minute) && minute <= MINUTE_RESERVE) {
+      this.notBefore = Date.now() + MINUTE_MS;
     }
   }
 }
