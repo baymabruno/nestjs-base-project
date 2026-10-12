@@ -255,16 +255,6 @@ tbody tr:hover {
   color: var(--muted);
 }
 
-.trend-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sparkline {
-  vertical-align: middle;
-}
-
 /* ---- phone ---- */
 
 @media (max-width: 640px) {
@@ -615,4 +605,275 @@ table.compact td {
   margin-left: 1px;
   color: var(--accent);
   font-size: 9px;
+}
+
+/* ---- abilities and talents ---- */
+
+.summary + .card {
+  margin-bottom: 16px;
+}
+
+.build {
+  margin-bottom: 16px;
+}
+
+.build-label {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.build-stats {
+  margin: 2px 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.build-stats strong {
+  color: var(--text);
+}
+
+.build-abilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ability {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+}
+
+.ability img,
+.ability-talent {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+}
+
+.ability-talent {
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.ability figcaption {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.talent-tree {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.talent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr);
+  border-top: 1px solid var(--border);
+}
+
+.talent-row:first-child {
+  border-top: 0;
+}
+
+.talent {
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.talent-chosen {
+  background: rgb(212 165 74 / 0.1);
+}
+
+.talent-name {
+  font-weight: 600;
+}
+
+.talent-stats {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.talent-tag {
+  margin-top: 2px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.talent-level {
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+}
+
+.talent-level span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .talent-row {
+    grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr);
+  }
+
+  .talent {
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+
+  .talent-level span {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+  }
+}
+
+/* ---- roles bar of the hero page ---- */
+
+.roles-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(90deg, #2a2216, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.roles-bar-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.roles-bar-hero img {
+  border-radius: var(--radius);
+}
+
+.roles-bar-hero h1 {
+  margin: 0;
+}
+
+.roles-bar-hero p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.roles-bar-roles {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  flex: 1;
+  gap: 8px;
+  min-width: min(100%, 640px);
+}
+
+.role-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px 8px;
+  border-radius: var(--radius);
+}
+
+a.role-column {
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background 0.15s;
+}
+
+a.role-column:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.role-popular {
+  background: rgb(255 255 255 / 0.08);
+}
+
+.role-column.role-selected {
+  border-color: var(--accent);
+  background: rgb(255 255 255 / 0.14);
+}
+
+.role-badge {
+  position: absolute;
+  top: -16px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.role-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.role-numbers {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.role-matches {
+  color: var(--accent);
+}
+
+.role-score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.role-score small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.role-share {
+  width: 70%;
+  height: 3px;
+  margin-top: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.role-share span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .roles-bar-roles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 22px;
+    min-width: 100%;
+  }
 }

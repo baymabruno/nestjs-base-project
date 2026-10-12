@@ -11,6 +11,10 @@ export const heroImage = (name: string) =>
 export const itemImage = (name: string) =>
   `${STEAM_CDN}/apps/dota2/images/dota_react/items/${name.startsWith("recipe_") ? "recipe" : name}.png`;
 
+/** Ability icon on the Steam CDN (talents have none) */
+export const abilityImage = (name: string) =>
+  `${STEAM_CDN}/apps/dota2/images/dota_react/abilities/${name}.png`;
+
 const decimals = [0, 1].map(
   (digits) =>
     new Intl.NumberFormat("pt-BR", {
@@ -35,6 +39,21 @@ export const gameTime = (seconds: number) => {
   const sign = seconds < 0 ? "-" : "";
   const total = Math.abs(Math.round(seconds));
   return `${sign}${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+};
+
+/**
+ * Period of the statistics: public matches of the last hours, pro matches of
+ * the whole patch
+ */
+export const periodLabel = (
+  source: "pro" | "public" | undefined,
+  publicHours: number,
+  patch: string | undefined,
+) => {
+  const pro = patch ?? "atual";
+  if (source === "pro") return `Patch ${pro}`;
+  if (source === "public") return `Últimas ${publicHours} h`;
+  return `${publicHours} h (públicas) · patch ${pro} (pro)`;
 };
 
 /** "2026-10-05" -> "05/10" */

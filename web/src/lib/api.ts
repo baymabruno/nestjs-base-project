@@ -37,26 +37,18 @@ export interface MetaHero {
   winRate: number;
   winRateLow: number;
   pickRate: number;
+  /** 0 to 100, the same formula of the roles */
+  score: number;
+  tier: Tier;
   durations: { short: DurationStats; medium: DurationStats; long: DurationStats };
-  trend: number | null;
-  daily: { day: string; matches: number; winRate: number | null }[];
 }
 
 export interface MetaHeroes {
   patch: Patch | null;
-  from: string;
-  to: string;
+  /** the statistics cover the matches of the last hours */
+  publicWindowHours: number;
   matches: number;
   heroes: MetaHero[];
-}
-
-export interface MetaFilters {
-  source?: Source;
-  bracket?: Bracket;
-  days: number;
-  minMatches: number;
-  /** tab of the top heroes by role (empty: all roles) */
-  role?: 1 | 2 | 3 | 4 | 5;
 }
 
 /** The API did not answer or answered with an error */
@@ -79,21 +71,31 @@ async function get<T>(path: string): Promise<T | null> {
   return text ? (JSON.parse(text) as T) : null;
 }
 
+const query = (params: Record<string, string | number | undefined>) => {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) search.set(key, String(value));
+  }
+  return search.toString();
+};
+
+async function required<T>(path: string): Promise<T> {
+  const result = await get<T>(path);
+  if (!result) throw new ApiError(`Empty answer for ${path}`);
+  return result;
+}
+
 /** Patch and totals of the statistics (null before the first calculation) */
 export function getMeta(): Promise<Meta | null> {
   return get<Meta>("/meta");
 }
 
-export async function getMetaHeroes(filters: MetaFilters): Promise<MetaHeroes> {
-  const params = new URLSearchParams({
-    days: String(filters.days),
-    minMatches: String(filters.minMatches),
-  });
-  if (filters.source) params.set("source", filters.source);
-  if (filters.bracket) params.set("bracket", filters.bracket);
-  const result = await get<MetaHeroes>(`/meta/heroes?${params}`);
-  if (!result) throw new ApiError("Empty answer for /meta/heroes");
-  return result;
+export function getMetaHeroes(filters: {
+  source?: Source;
+  bracket?: Bracket;
+  minMatches: number;
+}): Promise<MetaHeroes> {
+  return required(`/meta/heroes?${query(filters)}`);
 }
 
 // ---- hero page ----
@@ -166,20 +168,6 @@ export interface HeroItemTimings {
   items: TimedItem[];
 }
 
-const query = (params: Record<string, string | number | undefined>) => {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined) search.set(key, String(value));
-  }
-  return search.toString();
-};
-
-async function required<T>(path: string): Promise<T> {
-  const result = await get<T>(path);
-  if (!result) throw new ApiError(`Empty answer for ${path}`);
-  return result;
-}
-
 /** Heroes with matches in the current patch (id and names) */
 export async function getHeroList(): Promise<HeroListItem[]> {
   const { heroes } = await required<{ heroes: HeroListItem[] }>(
@@ -190,10 +178,11 @@ export async function getHeroList(): Promise<HeroListItem[]> {
 
 export function getHeroItems(
   heroId: number,
-  source?: Source,
+  source: Source | undefined,
+  minMatches: number,
 ): Promise<HeroDetails> {
   return required(
-    `/heroes/${heroId}?${query({ source, minMatches: 1, minItemCost: 1000 })}`,
+    `/heroes/${heroId}?${query({ source, minMatches, minItemCost: 1000 })}`,
   );
 }
 
@@ -209,10 +198,11 @@ export function getHeroMatchups(
 
 export function getHeroItemTimings(
   heroId: number,
-  source?: Source,
+  source: Source | undefined,
+  minMatches: number,
 ): Promise<HeroItemTimings> {
   return required(
-    `/heroes/${heroId}/item-timings?${query({ source, minMatches: 1 })}`,
+    `/heroes/${heroId}/item-timings?${query({ source, minMatches })}`,
   );
 }
 
@@ -236,8 +226,8 @@ export interface RoleHero {
 
 export interface Roles {
   available: boolean;
-  from: string | null;
-  to: string | null;
+  /** latest whole day of the STRATZ data (YYYY-MM-DD) */
+  day: string | null;
   matches: number;
   heroes: RoleHero[];
 }
@@ -245,7 +235,121 @@ export interface Roles {
 export function getRoles(filters: {
   position?: Position;
   bracket?: Bracket;
-  days: number;
 }): Promise<Roles> {
   return required(`/meta/roles?${query({ ...filters, minMatches: 100 })}`);
+}
+
+// ---- abilities and talents ----
+
+export interface Ability {
+  id: number;
+  name: string;
+  displayName: string | null;
+  isTalent: boolean;
+}
+
+export interface SkillBuild {
+  abilities: (Ability | null)[];
+  matches: number;
+  wins: number;
+  winRate: number;
+  pickRate: number;
+}
+
+export interface TalentOption {
+  id: number;
+  name: string;
+  displayName: string | null;
+  matches: number;
+  wins: number;
+  pickRate: number;
+  winRate: number | null;
+}
+
+export interface HeroAbilities {
+  skillBuild: { matches: number; builds: SkillBuild[] };
+  talents: {
+    available: boolean;
+    updatedAt: string | null;
+    tiers: { level: number; options: TalentOption[] }[];
+  };
+}
+
+/** Skill builds (OpenDota) and talents of a position (STRATZ; default all) */
+export function getHeroAbilities(
+  heroId: number,
+  source?: Source,
+  position?: Position,
+): Promise<HeroAbilities> {
+  return required(`/heroes/${heroId}/abilities?${query({ source, position })}`);
+}
+
+// ---- roles of a hero (STRATZ) ----
+
+export interface RoleTotals {
+  matches: number;
+  wins: number;
+  winRate: number | null;
+}
+
+export interface HeroRoles {
+  available: boolean;
+  day: string | null;
+  all: RoleTotals;
+  positions: HeroRole[];
+  mostPlayed: Position | null;
+}
+
+export interface HeroRole extends RoleTotals {
+  position: Position;
+  /** share of the matches of the hero */
+  share: number;
+  winRateLow: number | null;
+  pickRate: number;
+  /** place among the ranked heroes of the role (null: not ranked) */
+  rank: number | null;
+  rankedHeroes: number;
+  score: number | null;
+  tier: Tier | null;
+}
+
+/** The hero in each role, on the latest STRATZ day (Divine and Immortal) */
+export function getHeroRoles(
+  heroId: number,
+  bracket?: Bracket,
+): Promise<HeroRoles> {
+  return required(`/heroes/${heroId}/roles?${query({ bracket })}`);
+}
+
+// ---- items of a hero in a role (STRATZ) ----
+
+export interface RoleItem {
+  id: number;
+  name: string;
+  displayName: string | null;
+  cost: number | null;
+  matches: number;
+  wins: number;
+  winRate: number;
+}
+
+export interface RoleTimedItem extends RoleItem {
+  /** average minute of the first purchase, in seconds */
+  avgTime: number;
+  timings: { fromMinute: number; toMinute: number; matches: number; winRate: number }[];
+}
+
+export interface HeroRoleItems {
+  startingItems: RoleItem[];
+  timings: RoleTimedItem[];
+}
+
+export function getHeroRoleItems(
+  heroId: number,
+  position: Position,
+  minItemCost: number,
+): Promise<HeroRoleItems> {
+  return required(
+    `/heroes/${heroId}/role-items?${query({ position, minItemCost })}`,
+  );
 }
