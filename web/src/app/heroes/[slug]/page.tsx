@@ -22,6 +22,7 @@ import {
   type Matchup,
   type MetaHero,
   type RoleItem,
+  type RoleTimedItem,
   type TimedItem,
 } from "@/lib/api";
 import { parseFilters } from "@/lib/filters";
@@ -38,8 +39,22 @@ import {
 } from "@/lib/format";
 
 const MATCHUPS_SHOWN = 8;
-// core items: the timings leave out the cheaper ones
-const MIN_ITEM_COST = 1000;
+// items shown in each card
+const ITEMS_SHOWN = 12;
+
+/**
+ * The most used final items (complete, not components or consumables), from
+ * the earliest average purchase to the latest (unknown time last)
+ */
+function finalItemsByTime<T extends { isFinal: boolean }>(
+  items: T[],
+  time: (item: T) => number | null,
+): T[] {
+  return items
+    .filter((item) => item.isFinal)
+    .slice(0, ITEMS_SHOWN)
+    .sort((a, b) => (time(a) ?? Infinity) - (time(b) ?? Infinity));
+}
 const ATTRIBUTES: Record<string, string> = {
   str: "Força",
   agi: "Agilidade",
@@ -197,8 +212,9 @@ function FinalItems({
     <div className="card">
       <h2>Itens finais</h2>
       <p className="hint">
-        Itens a partir de 1.000 de ouro no inventário ao fim da partida. O uso é
-        a parcela das {matches ? integer(matches) : "–"} partidas em que os
+        Os {ITEMS_SHOWN} itens finais (montados, sem componentes e consumíveis)
+        mais usados no inventário ao fim da partida, do que é comprado mais cedo
+        para o mais tarde. O uso é a parcela das {matches ? integer(matches) : "–"} partidas em que os
         itens são conhecidos (os detalhes de cada partida dependem da cota do
         OpenDota); passe o mouse para ver a amostra.
       </p>
@@ -218,7 +234,7 @@ function FinalItems({
               </tr>
             </thead>
             <tbody>
-              {items.slice(0, 12).map((item) => (
+              {finalItemsByTime(items, (item) => item.avgPurchaseTime).map((item) => (
                 <tr key={item.id}>
                   <td className="text-left">
                     <ItemName name={item.name} displayName={item.displayName} />
@@ -234,6 +250,58 @@ function FinalItems({
                       ? "–"
                       : gameTime(item.avgPurchaseTime)}
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Items of the hero in the selected role: the first purchases (STRATZ) */
+function RoleItems({
+  items,
+  roleName,
+}: {
+  items: RoleTimedItem[];
+  roleName: string;
+}) {
+  return (
+    <div className="card">
+      <h2>Itens</h2>
+      <p className="hint">
+        Os {ITEMS_SHOWN} itens finais (montados, sem componentes e consumíveis)
+        mais comprados jogando de {roleName}, na última semana (STRATZ), do que
+        é comprado mais cedo para o mais tarde: partidas com a compra, win rate
+        e minuto médio da primeira compra. O STRATZ não informa o inventário final nem o total
+        de partidas da semana, então a coluna mostra as compras, não a parcela.
+      </p>
+      {items.length === 0 ? (
+        <p className="muted">Ainda não há dados de itens nesta função.</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="compact">
+            <thead>
+              <tr>
+                <th className="text-left">Item</th>
+                <th>Compras</th>
+                <th>Win rate</th>
+                <th title="Média da primeira compra">Compra</th>
+              </tr>
+            </thead>
+            <tbody>
+              {finalItemsByTime(items, (item) => item.avgTime).map((item) => (
+                <tr key={item.id}>
+                  <td className="text-left">
+                    <ItemName name={item.name} displayName={item.displayName} />
+                  </td>
+                  <td>{integer(item.matches)}</td>
+                  <td className={rateClass(item.winRate)}>
+                    {percent(item.winRate)}
+                  </td>
+                  <td className="muted">{gameTime(item.avgTime)}</td>
                 </tr>
               ))}
             </tbody>
@@ -447,8 +515,10 @@ export default async function HeroPage({ params, searchParams }: Props) {
       ? undefined
       : (filters.role ?? roles.mostPlayed ?? undefined);
     const [abilities, roleItems] = await Promise.all([
-      getHeroAbilities(listed.id, source, role),
-      role ? getHeroRoleItems(listed.id, role, MIN_ITEM_COST) : null,
+      // the builds use every source: public matches are rarely parsed
+      getHeroAbilities(listed.id, undefined, role),
+      // every item: the items card has no minimum cost
+      role ? getHeroRoleItems(listed.id, role, 0) : null,
     ]);
     data = {
       listed,
@@ -539,9 +609,9 @@ export default async function HeroPage({ params, searchParams }: Props) {
         <>
           <p className="hint">
             {roleName}, dia {roles.day && shortDay(roles.day)} (STRATZ). O
-            resumo, os talentos, os itens iniciais e o tempo de compra são da
-            função; builds, itens finais, duração e confrontos juntam todas as
-            funções, porque o OpenDota não informa a função do jogador.
+            resumo, os talentos e os itens são da função; builds, duração e
+            confrontos juntam todas as funções, porque o OpenDota não informa a
+            função do jogador.
           </p>
           <RoleSummary role={selected} />
         </>
@@ -578,7 +648,16 @@ export default async function HeroPage({ params, searchParams }: Props) {
             )}
           </div>
           <div className="grid-2">
-            <FinalItems items={items.items} matches={items.itemMatches} />
+            {roleItems && roleName ? (
+              <RoleItems
+                items={roleItems.timings.filter(
+                  (item) => item.matches >= minMatches,
+                )}
+                roleName={roleName}
+              />
+            ) : (
+              <FinalItems items={items.items} matches={items.itemMatches} />
+            )}
             <MatchupList
               title="Melhores aliados"
               hint={`Win rate com cada aliado (mínimo de ${minMatches} partidas).`}
@@ -588,7 +667,9 @@ export default async function HeroPage({ params, searchParams }: Props) {
           {roleItems ? (
             <Timings
               items={roleItems.timings.filter(
-                (item) => item.matches >= minMatches,
+                (item) =>
+                  item.matches >= minMatches &&
+                  item.isFinal,
               )}
               hint={`Win rate pelo minuto da primeira compra de cada item jogando de ${roleName}, em faixas de 5 minutos, na última semana (STRATZ). Passe o mouse para ver a amostra de cada faixa.`}
             />
@@ -596,7 +677,7 @@ export default async function HeroPage({ params, searchParams }: Props) {
             <Timings
               items={timings.items.filter(
                 (item) =>
-                  (item.cost ?? 0) >= MIN_ITEM_COST && !isStartingItem(item),
+                  item.isFinal && !isStartingItem(item),
               )}
               hint={
                 <>

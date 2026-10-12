@@ -94,6 +94,9 @@ export const itemsSchema = z.record(
     id,
     dname: z.string().nullish(),
     cost: id.nullish(),
+    // names of the items of the recipe (null: a basic item)
+    components: z.array(z.string()).nullish(),
+    qual: z.string().nullish(),
   }),
 );
 export type ItemConstant = z.infer<typeof itemsSchema>[string];

@@ -201,7 +201,7 @@ describe('StratzClient', () => {
 
       const { query } = JSON.parse(request?.data as string);
       expect(query).toContain(
-        'h1p5: itemFullPurchase(heroId: 1, bracketBasicIds: [DIVINE_IMMORTAL], positionIds: [POSITION_5])',
+        'h1p5: itemFullPurchase(heroId: 1, bracketBasicIds: [DIVINE_IMMORTAL], positionIds: [POSITION_5], matchLimit: 25)',
       );
       expect(rows).toEqual([
         {

@@ -1,6 +1,30 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { OpenDotaClient } from '../opendota/opendota.client.js';
+import { ItemConstant } from '../opendota/opendota.schemas.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+
+// bought as a final item even though it is a component of its upgrades
+const FINAL_COMPONENTS = new Set(['blink']);
+// assembled, but consumable: the observer and sentry wards together
+const NOT_FINAL = new Set(['ward_dispenser']);
+
+/**
+ * A complete item: assembled from a recipe, or a basic item that is not part
+ * of any recipe (e.g. Aghanim's Shard). Components, consumables, recipes and
+ * free items (neutral items) are not.
+ */
+export const isFinalItem = (
+  name: string,
+  item: ItemConstant,
+  usedInRecipes: Set<string>,
+) => {
+  if (FINAL_COMPONENTS.has(name)) return true;
+  if (NOT_FINAL.has(name) || name.startsWith('recipe_') || !item.cost) {
+    return false;
+  }
+  if (item.components?.length) return true;
+  return item.qual !== 'consumable' && !usedInRecipes.has(name);
+};
 
 export interface PatchInfo {
   id: number;
@@ -47,6 +71,9 @@ export class GameDataService implements OnModuleInit {
     const heroes = Object.values(await this.openDota.getHeroes());
     const items = Object.entries(await this.openDota.getItems());
     const patches = await this.openDota.getPatches();
+    const usedInRecipes = new Set(
+      items.flatMap(([, item]) => item.components ?? []),
+    );
 
     await this.prisma.$transaction([
       this.prisma.hero.deleteMany(),
@@ -66,6 +93,7 @@ export class GameDataService implements OnModuleInit {
           name,
           displayName: item.dname ?? null,
           cost: item.cost ?? null,
+          isFinal: isFinalItem(name, item, usedInRecipes),
         })),
         // protects the sync if the API ever repeats an id
         skipDuplicates: true,

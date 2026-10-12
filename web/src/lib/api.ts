@@ -111,6 +111,8 @@ export interface HeroItem {
   name: string;
   displayName: string | null;
   cost: number | null;
+  /** a complete item, not a component, consumable or recipe */
+  isFinal: boolean;
   matches: number;
   wins: number;
   winRate: number;
@@ -155,6 +157,8 @@ export interface TimedItem {
   name: string;
   displayName: string | null;
   cost: number | null;
+  /** a complete item, not a component, consumable or recipe */
+  isFinal: boolean;
   matches: number;
   wins: number;
   winRate: number;
@@ -182,7 +186,7 @@ export function getHeroItems(
   minMatches: number,
 ): Promise<HeroDetails> {
   return required(
-    `/heroes/${heroId}?${query({ source, minMatches, minItemCost: 1000 })}`,
+    `/heroes/${heroId}?${query({ source, minMatches })}`,
   );
 }
 
@@ -328,6 +332,8 @@ export interface RoleItem {
   name: string;
   displayName: string | null;
   cost: number | null;
+  /** a complete item, not a component, consumable or recipe */
+  isFinal: boolean;
   matches: number;
   wins: number;
   winRate: number;

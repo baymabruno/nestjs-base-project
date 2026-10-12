@@ -32,7 +32,10 @@ describe('GameDataService', () => {
       name: 'blink',
       displayName: 'Blink Dagger',
       cost: 2250,
+      isFinal: true,
     });
+    const tango = await prisma.item.findUnique({ where: { name: 'tango' } });
+    expect(tango?.isFinal).toBe(false);
     expect(await prisma.patch.count()).toBe(2);
     expect(service.isLoaded).toBe(true);
   });

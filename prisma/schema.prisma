@@ -32,6 +32,8 @@ model Item {
   name        String  @unique
   displayName String? @map("display_name")
   cost        Int?
+  // a complete item, not a component, consumable or recipe (see game data)
+  isFinal     Boolean @default(false) @map("is_final")
 
   @@map("items")
 }

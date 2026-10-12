@@ -74,6 +74,8 @@ interface Combo {
 // aliases (hero and position) per request
 const ALIASES_PER_REQUEST = 50;
 const comboAlias = ({ heroId, position }: Combo) => `h${heroId}p${position}`;
+// lowest matches of an item in a minute (see getRoleItemTimings)
+const ITEM_MATCH_LIMIT = 25;
 const comboArgs = ({ heroId, position }: Combo) =>
   `heroId: ${heroId}, bracketBasicIds: [DIVINE_IMMORTAL]` +
   (position ? `, positionIds: [POSITION_${position}]` : '');
@@ -195,7 +197,9 @@ export class StratzClient {
 
   /**
    * First purchase of each item per minute, for every hero in each position
-   * (latest STRATZ week; STRATZ only returns the frequent cells)
+   * (latest STRATZ week). STRATZ leaves out the item-minute cells with fewer
+   * matches than matchLimit, about 250 by default, which keeps only a few
+   * items per role; a lower limit brings the less common ones.
    */
   async getRoleItemTimings(
     heroIds: number[],
@@ -203,7 +207,8 @@ export class StratzClient {
     const results = await this.perCombo(
       combos(heroIds, POSITIONS),
       (combo) =>
-        `itemFullPurchase(${comboArgs(combo)}) { itemId time matchCount winCount }`,
+        `itemFullPurchase(${comboArgs(combo)}, matchLimit: ${ITEM_MATCH_LIMIT}) ` +
+        `{ itemId time matchCount winCount }`,
       itemTimingRowSchema,
     );
     return results.flatMap(({ combo, rows }) =>

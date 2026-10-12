@@ -35,7 +35,7 @@ export const fakeOpenDota = (overrides: Partial<OpenDotaClient> = {}) =>
     }),
     getItems: async () => ({
       blink: { id: 1, dname: 'Blink Dagger', cost: 2250 },
-      tango: { id: 44, dname: 'Tango', cost: 90 },
+      tango: { id: 44, dname: 'Tango', cost: 90, qual: 'consumable' },
       bfury: { id: 145, dname: 'Battle Fury', cost: 4100 },
     }),
     getPatches: async () => patches,

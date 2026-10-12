@@ -38,7 +38,13 @@ export class RoleItemsQueryService {
           in: [...new Set([...starting, ...timings].map((row) => row.itemId))],
         },
       },
-      select: { id: true, name: true, displayName: true, cost: true },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        cost: true,
+        isFinal: true,
+      },
     });
     const itemById = new Map(items.map((item) => [item.id, item]));
 

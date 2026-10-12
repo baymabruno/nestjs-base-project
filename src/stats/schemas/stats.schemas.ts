@@ -91,6 +91,9 @@ export const heroDetailsSchema = z
           name: z.string(),
           displayName: z.string().nullable(),
           cost: z.number().nullable(),
+          isFinal: z
+            .boolean()
+            .describe('A complete item, not a component, consumable or recipe'),
           matches: z.number().describe('Matches ending with the item'),
           wins: z.number(),
           winRate: rate,
@@ -235,6 +238,9 @@ export const heroItemTimingsSchema = z
           name: z.string(),
           displayName: z.string().nullable(),
           cost: z.number().nullable(),
+          isFinal: z
+            .boolean()
+            .describe('A complete item, not a component, consumable or recipe'),
           matches: z.number().describe('Matches in which the item was bought'),
           wins: z.number(),
           winRate: rate,
@@ -479,6 +485,9 @@ const roleItemSchema = z.object({
   name: z.string(),
   displayName: z.string().nullable(),
   cost: z.number().nullable(),
+  isFinal: z
+    .boolean()
+    .describe('A complete item, not a component, consumable or recipe'),
   matches: z.number(),
   wins: z.number(),
   winRate: rate,
