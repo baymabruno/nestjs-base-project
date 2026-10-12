@@ -7,8 +7,6 @@ import type {
 } from "@/lib/api";
 import { abilityImage, integer, percent } from "@/lib/format";
 
-const BUILDS_SHOWN = 3;
-
 function AbilityIcon({
   ability,
   level,
@@ -37,10 +35,9 @@ function AbilityIcon({
   );
 }
 
-function Build({ build, label }: { build: SkillBuild; label?: string }) {
+function Build({ build }: { build: SkillBuild }) {
   return (
     <div className="build">
-      {label && <div className="build-label">{label}</div>}
       <div className="build-stats">
         {integer(build.matches)} partidas ·{" "}
         <strong>{percent(build.winRate)}</strong> win rate ·{" "}
@@ -53,18 +50,6 @@ function Build({ build, label }: { build: SkillBuild; label?: string }) {
       </div>
     </div>
   );
-}
-
-// the most played build is also the one with the highest win rate among the
-// builds with a reasonable sample
-const MIN_BUILD_MATCHES = 10;
-
-function buildLabel(builds: SkillBuild[]) {
-  const [first] = builds;
-  const best = builds
-    .filter((build) => build.matches >= MIN_BUILD_MATCHES)
-    .sort((a, b) => b.winRate - a.winRate)[0];
-  return best === first ? "Mais escolhida e maior win rate" : "Mais escolhida";
 }
 
 function TalentCell({
@@ -119,26 +104,25 @@ export function AbilitiesSection({
   roleName?: string;
 }) {
   const { skillBuild, talents } = data;
-  const builds = skillBuild.builds.slice(0, BUILDS_SHOWN);
+  // only the most played build: the others have small samples
+  const [build] = skillBuild.builds;
   return (
     <div className="card">
       <h2>Habilidades e talentos</h2>
       <p className="hint">
-        Sequência dos 10 primeiros níveis nas {integer(skillBuild.matches)}{" "}
-        partidas com a ordem de habilidades conhecida (a amostra cresce a cada
-        dia). Passe o mouse sobre cada nível para ver a habilidade.
+        A sequência mais usada nos 10 primeiros níveis, entre as{" "}
+        {integer(skillBuild.matches)} partidas com a ordem de habilidades
+        conhecida, de todas as funções. Só as partidas processadas pelo OpenDota
+        têm essa ordem, quase todas profissionais (do patch inteiro), então a
+        sequência não segue o filtro de partidas. Passe o mouse sobre cada
+        nível para ver a habilidade.
       </p>
-      {builds.length === 0 ? (
+      {build ? (
+        <Build build={build} />
+      ) : (
         <p className="muted">
           Ainda não há partidas com a ordem de habilidades deste herói.
         </p>
-      ) : (
-        <>
-          <Build build={builds[0]} label={buildLabel(skillBuild.builds)} />
-          {builds.slice(1).map((build, index) => (
-            <Build key={index} build={build} />
-          ))}
-        </>
       )}
 
       <h2>Árvore de talentos</h2>
