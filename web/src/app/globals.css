@@ -208,9 +208,9 @@ thead th button {
   cursor: pointer;
 }
 
+/* every column in the sorting, not only the first one (aria-sort) */
 thead th button:hover,
-thead th[aria-sort="ascending"] button,
-thead th[aria-sort="descending"] button {
+thead th button:has(.sort-indicator) {
   color: var(--text);
 }
 
@@ -609,4 +609,10 @@ table.compact td {
   .role-card-body {
     width: 100%;
   }
+}
+
+.sort-indicator sup {
+  margin-left: 1px;
+  color: var(--accent);
+  font-size: 9px;
 }

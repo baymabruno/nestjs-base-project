@@ -172,6 +172,8 @@ O site (`web/`) mostra as estatísticas em páginas. É um projeto Next.js separ
 
 O percentil é a posição do herói entre os da função, de 0 a 1. Diferente de uma escala entre o mínimo e o máximo, ele não é distorcido por poucos heróis extremos. Como é relativa à função, a nota compara heróis da mesma função: um offlaner muito escolhido, com win rate acima da mediana dos offlaners, pode ter nota alta mesmo com win rate abaixo de 50%.
 
+A tabela de todos os heróis aceita ordenação por várias colunas: o primeiro clique num título ordena do maior para o menor, o segundo do menor para o maior e o terceiro tira a coluna da ordenação. As colunas clicadas desempatam na ordem dos cliques (por exemplo, partidas e depois win rate), e sem nenhuma vale a ordem padrão, pela WR ajustada.
+
 Os filtros (fonte, rank, período, amostra mínima e função) ficam na URL, então uma visão pode ser compartilhada por link. A API calcula tudo a partir da tabela `hero_daily_stats` (herói × dia × fonte × rank × duração), recalculada pelo worker.
 
 **Página do herói (`/heroes/<nome>`, por exemplo `/heroes/pudge`)**, aberta pelo nome do herói na página de meta, nos moldes das páginas de herói do Dota2ProTracker e dos matchups do STRATZ. Usa os últimos 30 dias do patch, com o filtro de fonte:

@@ -115,6 +115,14 @@ function Legend() {
         valem 52%. Assim, heróis com amostra pequena não aparecem no topo por
         acaso.
       </dd>
+      <dt>Ordenação</dt>
+      <dd>
+        Clique no título de uma coluna para ordenar do maior para o menor; o
+        segundo clique ordena do menor para o maior, e o terceiro tira a
+        coluna da ordenação. Clicando em mais colunas, elas desempatam na
+        ordem dos cliques (o número ao lado da seta). Sem colunas, vale a
+        ordem padrão, pela WR ajustada.
+      </dd>
       <dt>Pick rate</dt>
       <dd>Parcela das partidas do filtro em que o herói foi escolhido.</dd>
       <dt>Win rate por duração</dt>

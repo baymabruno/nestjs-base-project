@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import type { DurationStats, MetaHero } from "@/lib/api";
 import { heroImage, heroSlug, integer, percent, points } from "@/lib/format";
 import { Sparkline } from "@/components/sparkline";
+import { sortRows, toggleSort, type SortRule } from "./sorting";
 
 type SortKey =
   | "hero"
@@ -64,34 +65,13 @@ function DurationCell({ stats }: { stats: DurationStats }) {
 }
 
 export function MetaTable({ heroes }: { heroes: MetaHero[] }) {
-  // the API ranks by the adjusted win rate
-  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({
-    key: "winRateLow",
-    desc: true,
-  });
+  // empty: the order of the API (adjusted win rate, highest first)
+  const [rules, setRules] = useState<SortRule<SortKey>[]>([]);
 
-  const sorted = useMemo(() => {
-    const direction = sort.desc ? -1 : 1;
-    return [...heroes].sort((a, b) => {
-      const left = valueOf(a, sort.key);
-      const right = valueOf(b, sort.key);
-      // no data always goes last
-      if (left === null) return 1;
-      if (right === null) return -1;
-      if (typeof left === "string") {
-        return left.localeCompare(right as string, "pt-BR") * direction;
-      }
-      return ((left as number) - (right as number)) * direction;
-    });
-  }, [heroes, sort]);
-
-  const toggle = (key: SortKey) =>
-    setSort((current) =>
-      current.key === key
-        ? { key, desc: !current.desc }
-        : // names start A-Z, numbers start from the highest
-          { key, desc: key !== "hero" },
-    );
+  const sorted = useMemo(
+    () => sortRows(heroes, rules, valueOf),
+    [heroes, rules],
+  );
 
   return (
     <div className="table-wrap">
@@ -99,25 +79,38 @@ export function MetaTable({ heroes }: { heroes: MetaHero[] }) {
         <thead>
           <tr>
             <th className="rank">#</th>
-            {COLUMNS.map((column) => (
-              <th
-                key={column.key}
-                title={column.title}
-                className={column.key === "hero" ? "text-left" : undefined}
-                aria-sort={
-                  sort.key === column.key
-                    ? sort.desc
-                      ? "descending"
-                      : "ascending"
-                    : undefined
-                }
-              >
-                <button type="button" onClick={() => toggle(column.key)}>
-                  {column.label}
-                  {sort.key === column.key ? (sort.desc ? " ↓" : " ↑") : ""}
-                </button>
-              </th>
-            ))}
+            {COLUMNS.map((column) => {
+              const position = rules.findIndex((rule) => rule.key === column.key);
+              const rule = rules[position];
+              return (
+                <th
+                  key={column.key}
+                  title={column.title}
+                  className={column.key === "hero" ? "text-left" : undefined}
+                  aria-sort={
+                    // only the column that decides the order
+                    position === 0
+                      ? rule.desc
+                        ? "descending"
+                        : "ascending"
+                      : undefined
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => setRules((current) => toggleSort(current, column.key))}
+                  >
+                    {column.label}
+                    {rule && (
+                      <span className="sort-indicator">
+                        {rule.desc ? " ↓" : " ↑"}
+                        {rules.length > 1 && <sup>{position + 1}</sup>}
+                      </span>
+                    )}
+                  </button>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>

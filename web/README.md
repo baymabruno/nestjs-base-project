@@ -2,6 +2,8 @@
 
 Site do Dota Metrics em [Next.js](https://nextjs.org) 16, com as páginas de estatísticas. Ele lê a API do projeto (`API_URL`) no servidor e guarda as respostas em cache por 15 minutos, o mesmo intervalo do recálculo das estatísticas.
 
+Testes (lógica sem navegador, como a ordenação da tabela): `docker exec dota-metrics-web npm test`.
+
 Roda em Docker junto com o resto do sistema: veja o [guia de desenvolvimento](../docs/DESENVOLVIMENTO.md#site) e o [README](../README.md#site) do projeto.
 
 | Página | Descrição |
