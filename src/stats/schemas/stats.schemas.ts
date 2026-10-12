@@ -115,8 +115,6 @@ export type HeroDetails = z.infer<typeof heroDetailsSchema>;
 
 // ---- meta page ----
 
-export const META_MAX_DAYS = 30;
-
 export const metaHeroesQuerySchema = z
   .strictObject({
     source,
@@ -124,13 +122,6 @@ export const metaHeroesQuerySchema = z
       .enum(['divine', 'immortal'])
       .optional()
       .describe('Only public matches of this average rank (default: all)'),
-    days: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(META_MAX_DAYS)
-      .default(8)
-      .describe('Days of matches, up to today (UTC)'),
     minMatches,
   })
   .meta({ id: 'MetaHeroesQuery' });
@@ -143,8 +134,11 @@ const durationStatsSchema = z.object({
 export const metaHeroesSchema = z
   .object({
     patch: patchSchema.nullable(),
-    from: z.iso.date().describe('First day included (UTC)'),
-    to: z.iso.date().describe('Last day included (UTC)'),
+    publicWindowHours: z
+      .number()
+      .describe(
+        'Public matches count for the last hours; pro matches, for the whole patch',
+      ),
     matches: z.number().describe('Matches in the filters'),
     heroes: z
       .array(
@@ -156,6 +150,12 @@ export const metaHeroesSchema = z
             'Lower bound of the 95% Wilson interval: the win rate the sample supports',
           ),
           pickRate: rate,
+          score: z
+            .number()
+            .describe(
+              '0 to 100: 70% the percentile of winRateLow and 30% the percentile of pickRate among the heroes listed',
+            ),
+          tier: z.enum(['S', 'A', 'B', 'C', 'D']).describe('From the score'),
           durations: z
             .object({
               short: durationStatsSchema.describe('Under 35 minutes'),
@@ -163,24 +163,9 @@ export const metaHeroesSchema = z
               long: durationStatsSchema.describe('50 minutes or more'),
             })
             .describe('Win rate by game duration'),
-          trend: z
-            .number()
-            .nullable()
-            .describe(
-              'Win rate of the second half of the period minus the first half (null with 1 day or fewer than 30 matches in a half)',
-            ),
-          daily: z
-            .array(
-              z.object({
-                day: z.iso.date(),
-                matches: z.number(),
-                winRate: rate.nullable(),
-              }),
-            )
-            .describe('Every day of the period, oldest first'),
         }),
       )
-      .describe('Highest adjusted win rate (winRateLow) first'),
+      .describe('Highest score first'),
   })
   .meta({ id: 'MetaHeroes' });
 
@@ -300,13 +285,6 @@ export const rolesQuerySchema = z
       .enum(['divine', 'immortal'])
       .optional()
       .describe('Average rank of the matches (default: both)'),
-    days: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(META_MAX_DAYS)
-      .default(8)
-      .describe('Days with data, up to the latest one'),
     minMatches: z.coerce
       .number()
       .int()
@@ -322,8 +300,12 @@ export const rolesSchema = z
     available: z
       .boolean()
       .describe('False while there is no data (STRATZ_API_TOKEN not set)'),
-    from: z.iso.date().nullable(),
-    to: z.iso.date().nullable().describe('Latest day with data (UTC)'),
+    day: z.iso
+      .date()
+      .nullable()
+      .describe(
+        'Day of the data: the latest one of STRATZ, which has whole days only (UTC)',
+      ),
     matches: z.number().describe('Matches in the filters'),
     heroes: z
       .array(
@@ -352,3 +334,184 @@ export const rolesSchema = z
 
 export type RolesQuery = z.infer<typeof rolesQuerySchema>;
 export type Roles = z.infer<typeof rolesSchema>;
+
+// ---- abilities and talents ----
+
+const positionFilter = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(5)
+  .optional()
+  .describe(
+    '1 carry, 2 mid, 3 offlane, 4 support, 5 hard support (default: all)',
+  );
+
+export const heroAbilitiesQuerySchema = z
+  .strictObject({
+    source,
+    position: positionFilter.describe(
+      'Talents of a position (default: all); the builds are not by position',
+    ),
+  })
+  .meta({ id: 'HeroAbilitiesQuery' });
+
+const abilitySchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  displayName: z.string().nullable(),
+  isTalent: z.boolean(),
+});
+
+const talentOptionSchema = abilitySchema.omit({ isTalent: true }).extend({
+  matches: z.number(),
+  wins: z.number(),
+  pickRate: rate.describe('Share of the picks of the tier'),
+  winRate: rate.nullable().describe('Null without picks'),
+});
+
+export const heroAbilitiesSchema = z
+  .object({
+    skillBuild: z.object({
+      matches: z
+        .number()
+        .describe('Matches of the hero with the first 10 levels known'),
+      builds: z
+        .array(
+          z.object({
+            abilities: z
+              .array(abilitySchema.nullable())
+              .describe('Levels 1 to 10 (null: unknown ability)'),
+            matches: z.number(),
+            wins: z.number(),
+            winRate: rate,
+            pickRate: rate.describe('Share of the matches with this build'),
+          }),
+        )
+        .describe('The 5 most common builds, most played first'),
+    }),
+    talents: z.object({
+      available: z
+        .boolean()
+        .describe('False without STRATZ data (STRATZ_API_TOKEN not set)'),
+      updatedAt: z.iso.datetime().nullable(),
+      tiers: z
+        .array(
+          z.object({
+            level: z.number().describe('Hero level: 25, 20, 15 or 10'),
+            options: z.array(talentOptionSchema).describe('The two talents'),
+          }),
+        )
+        .describe('From level 25 to 10, as in the game'),
+    }),
+  })
+  .meta({ id: 'HeroAbilities' });
+
+export type HeroAbilitiesQuery = z.infer<typeof heroAbilitiesQuerySchema>;
+export type HeroAbilities = z.infer<typeof heroAbilitiesSchema>;
+
+// ---- roles of a hero ----
+
+export const heroRolesQuerySchema = z
+  .strictObject({ bracket: rolesQuerySchema.shape.bracket })
+  .meta({ id: 'HeroRolesQuery' });
+
+const roleTotalsSchema = z.object({
+  matches: z.number(),
+  wins: z.number(),
+  winRate: rate.nullable().describe('Null without matches'),
+});
+
+export const heroRolesSchema = z
+  .object({
+    available: z
+      .boolean()
+      .describe('False while there is no data (STRATZ_API_TOKEN not set)'),
+    day: z.iso.date().nullable().describe('Day of the data (UTC)'),
+    all: roleTotalsSchema.describe('Every position'),
+    positions: z
+      .array(
+        roleTotalsSchema.extend({
+          position: z.number().describe('1 carry ... 5 hard support'),
+          share: rate.describe('Share of the matches of the hero'),
+          winRateLow: rate
+            .nullable()
+            .describe('Lower bound of the 95% Wilson interval'),
+          pickRate: rate.describe(
+            'Share of the matches with the hero in the role',
+          ),
+          rank: z
+            .number()
+            .nullable()
+            .describe('Place in the role ranking (null below 100 matches)'),
+          rankedHeroes: z.number().describe('Heroes in the role ranking'),
+          score: z
+            .number()
+            .nullable()
+            .describe(
+              'Score in the role, as in /meta/roles (null below 100 matches)',
+            ),
+          tier: z.enum(['S', 'A', 'B', 'C', 'D']).nullable(),
+        }),
+      )
+      .describe('Positions 1 to 5'),
+    mostPlayed: z
+      .number()
+      .nullable()
+      .describe('Position with the most matches of the hero'),
+  })
+  .meta({ id: 'HeroRoles' });
+
+export type HeroRolesQuery = z.infer<typeof heroRolesQuerySchema>;
+export type HeroRoles = z.infer<typeof heroRolesSchema>;
+
+// ---- items of a hero by role (STRATZ) ----
+
+export const heroRoleItemsQuerySchema = z
+  .strictObject({
+    position: z.coerce.number().int().min(1).max(5).describe('1 to 5'),
+    minItemCost: z.coerce.number().int().min(0).default(0),
+  })
+  .meta({ id: 'HeroRoleItemsQuery' });
+
+const roleItemSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  displayName: z.string().nullable(),
+  cost: z.number().nullable(),
+  matches: z.number(),
+  wins: z.number(),
+  winRate: rate,
+});
+
+export const heroRoleItemsSchema = z
+  .object({
+    startingItems: z
+      .array(roleItemSchema)
+      .describe('Bought before the horn, most bought first'),
+    timings: z
+      .array(
+        roleItemSchema.extend({
+          avgTime: z
+            .number()
+            .describe('Average minute of the first purchase, in seconds'),
+          timings: z
+            .array(
+              z.object({
+                fromMinute: z.number(),
+                toMinute: z.number(),
+                matches: z.number(),
+                winRate: rate,
+              }),
+            )
+            .describe(
+              'Win rate by the minute of the first purchase (5 minutes)',
+            ),
+        }),
+      )
+      .describe('Items by the minute of the first purchase, most bought first'),
+  })
+  .meta({ id: 'HeroRoleItems' });
+
+export type HeroRoleItemsQuery = z.infer<typeof heroRoleItemsQuerySchema>;
+export type HeroRoleItems = z.infer<typeof heroRoleItemsSchema>;

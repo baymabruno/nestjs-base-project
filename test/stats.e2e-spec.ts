@@ -60,7 +60,7 @@ describe('Stats (e2e)', () => {
 
   it('/api/v1/meta/heroes (GET)', () => {
     return request(app.getHttpServer())
-      .get('/api/v1/meta/heroes?days=30&source=public')
+      .get('/api/v1/meta/heroes?source=public')
       .expect(200)
       .expect((res) => {
         expect(res.body.patch.name).toBe('7.41');
@@ -70,11 +70,12 @@ describe('Stats (e2e)', () => {
           winRate: 1,
           durations: { short: { matches: 0, winRate: null } },
         });
-        expect(res.body.heroes[0].daily).toHaveLength(30);
+        expect(res.body.publicWindowHours).toBe(24);
       });
   });
 
-  it.each(['days=0', 'days=31', 'bracket=herald'])(
+  // there is no period filter: the window is PUBLIC_WINDOW_HOURS
+  it.each(['days=8', 'bracket=herald'])(
     'rejects an invalid meta filter: %s',
     async (filter) => {
       await request(app.getHttpServer())
@@ -124,6 +125,26 @@ describe('Stats (e2e)', () => {
     return request(app.getHttpServer())
       .get('/api/v1/meta/roles?position=6')
       .expect(400);
+  });
+
+  it('/api/v1/heroes/:heroId/abilities (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/heroes/1/abilities')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.skillBuild.matches).toBe(1);
+        expect(res.body.skillBuild.builds[0].abilities).toHaveLength(10);
+        expect(res.body.talents.tiers[0].level).toBe(15);
+      });
+  });
+
+  it('/api/v1/heroes/:heroId/roles (GET) without data', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/heroes/1/roles')
+      .expect(200)
+      .expect((res) =>
+        expect(res.body).toMatchObject({ available: false, positions: [] }),
+      );
   });
 
   it('rejects invalid filters', () => {

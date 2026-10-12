@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import {
   createTestPrisma,
   resetDatabase,
@@ -8,25 +9,37 @@ import {
   proMatch,
   publicMatch,
 } from '../../test/support/opendota-fakes.js';
+import { Env } from '../config/env.validation.js';
 import { GameDataService } from '../game-data/game-data.service.js';
 import { MatchesService } from '../matches/matches.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { MetaService, MIN_TREND_MATCHES } from './meta.service.js';
+import { MetaService } from './meta.service.js';
 import { StatsService } from './stats.service.js';
 
-const DAY = 86400;
+const HOUR = 3600;
 const now = new Date(NOW * 1000);
-const query = { days: 8, minMatches: 1 };
+const query = { minMatches: 1 };
 
 describe('MetaService', () => {
   let prisma: PrismaService;
   let service: MetaService;
   let matches: MatchesService;
-  let refresh: () => Promise<void>;
+  // the window of the tests: the last 24 hours before NOW
+  const refresh = () =>
+    new StatsService(prisma).refresh(
+      60,
+      new Date(now.getTime() - 24 * HOUR * 1000),
+    );
 
   beforeAll(() => {
     prisma = createTestPrisma();
-    service = new MetaService(prisma);
+    service = new MetaService(
+      prisma,
+      new ConfigService({ PUBLIC_WINDOW_HOURS: 24 }) as ConfigService<
+        Env,
+        true
+      >,
+    );
   });
 
   beforeEach(async () => {
@@ -34,7 +47,6 @@ describe('MetaService', () => {
     const gameData = new GameDataService(prisma, fakeOpenDota());
     await gameData.sync();
     matches = new MatchesService(prisma, gameData);
-    refresh = () => new StatsService(prisma).refresh(60);
   });
 
   afterAll(async () => {
@@ -48,13 +60,15 @@ describe('MetaService', () => {
     publicMatch({ match_id: id, radiant_win: false, ...overrides });
 
   it('is empty before the first calculation', async () => {
-    const result = await service.getHeroes(query, now);
-
-    expect(result).toMatchObject({ patch: null, matches: 0, heroes: [] });
-    expect(result.to).toBe(now.toISOString().slice(0, 10));
+    expect(await service.getHeroes(query)).toEqual({
+      patch: null,
+      publicWindowHours: 24,
+      matches: 0,
+      heroes: [],
+    });
   });
 
-  it('calculates the rates of the period', async () => {
+  it('calculates the rates of the window', async () => {
     await matches.addPublicMatches([
       radiantWins(1),
       radiantWins(2),
@@ -63,7 +77,7 @@ describe('MetaService', () => {
     ]);
     await refresh();
 
-    const result = await service.getHeroes(query, now);
+    const result = await service.getHeroes(query);
 
     expect(result.patch?.name).toBe('7.41');
     expect(result.matches).toBe(4);
@@ -77,19 +91,41 @@ describe('MetaService', () => {
       pickRate: 1,
     });
     expect(result.heroes[0].winRateLow).toBeCloseTo(0.3006, 4);
+    // best adjusted win rate (70) and a tie in the pick rate (half of 30)
+    expect(result.heroes[0]).toMatchObject({ score: 85, tier: 'S' });
   });
 
-  it('leaves out the matches outside the period', async () => {
+  it('leaves out the matches older than the window', async () => {
     await matches.addPublicMatches([
-      radiantWins(1),
-      radiantWins(2, { start_time: NOW - 10 * DAY }),
+      radiantWins(1, { start_time: NOW - 2 * HOUR }),
+      radiantWins(2, { start_time: NOW - 30 * HOUR }),
     ]);
     await refresh();
 
-    expect((await service.getHeroes(query, now)).matches).toBe(1);
-    expect((await service.getHeroes({ ...query, days: 30 }, now)).matches).toBe(
-      2,
-    );
+    expect((await service.getHeroes(query)).matches).toBe(1);
+  });
+
+  it('counts the pro matches of the whole patch', async () => {
+    const started = new Date(now.getTime() - 30 * HOUR * 1000);
+    await matches.addProMatches([
+      proMatch({ match_id: 3, start_time: started.getTime() / 1000 }),
+    ]);
+    await prisma.matchPlayer.createMany({
+      data: [1, 2].map((heroId, index) => ({
+        matchId: 3n,
+        playerSlot: index * 128,
+        heroId,
+        win: index === 1,
+        source: 'PRO' as const,
+        patchId: 60,
+        startTime: started,
+      })),
+    });
+    await refresh();
+
+    const [hero] = (await service.getHeroes({ ...query, source: 'pro' }))
+      .heroes;
+    expect(hero.matches).toBe(1);
   });
 
   it('separates the win rate by game duration', async () => {
@@ -100,7 +136,7 @@ describe('MetaService', () => {
     ]);
     await refresh();
 
-    const [antiMage] = (await service.getHeroes(query, now)).heroes;
+    const [antiMage] = (await service.getHeroes(query)).heroes;
 
     expect(antiMage.durations).toEqual({
       short: { matches: 1, winRate: 1 },
@@ -129,8 +165,7 @@ describe('MetaService', () => {
     await refresh();
 
     const total = async (filters: object) =>
-      (await service.getHeroes({ ...query, ...filters }, now)).heroes[0]
-        .matches;
+      (await service.getHeroes({ ...query, ...filters })).heroes[0].matches;
     expect(await total({})).toBe(3);
     expect(await total({ source: 'pro' })).toBe(1);
     expect(await total({ source: 'public' })).toBe(2);
@@ -138,54 +173,7 @@ describe('MetaService', () => {
     expect(await total({ bracket: 'immortal' })).toBe(1);
   });
 
-  it('reports the daily results and the trend', async () => {
-    // a 4 day period: 0 wins in the first half, all wins in the second
-    const ids = (from: number) =>
-      Array.from({ length: MIN_TREND_MATCHES }, (_, index) => from + index);
-    await matches.addPublicMatches([
-      ...ids(100).map((id) => direWins(id, { start_time: NOW - 3 * DAY })),
-      ...ids(200).map((id) => radiantWins(id, { start_time: NOW - DAY })),
-    ]);
-    await refresh();
-
-    const [antiMage] = (
-      await service.getHeroes({ ...query, days: 4 }, now)
-    ).heroes.filter((hero) => hero.id === 1);
-
-    expect(antiMage.trend).toBe(1);
-    expect(antiMage.daily.map((day) => [day.matches, day.winRate])).toEqual([
-      [MIN_TREND_MATCHES, 0],
-      [0, null],
-      [MIN_TREND_MATCHES, 1],
-      [0, null],
-    ]);
-  });
-
-  it('has no trend while a half has few matches', async () => {
-    await matches.addPublicMatches([
-      direWins(1, { start_time: NOW - 3 * DAY }),
-      radiantWins(2, { start_time: NOW - DAY }),
-    ]);
-    await refresh();
-
-    const [antiMage] = (await service.getHeroes({ ...query, days: 4 }, now))
-      .heroes;
-
-    expect(antiMage.trend).toBeNull();
-  });
-
-  it('has no trend for a single day', async () => {
-    await matches.addPublicMatches([radiantWins(1)]);
-    await refresh();
-
-    const [antiMage] = (await service.getHeroes({ ...query, days: 1 }, now))
-      .heroes;
-
-    expect(antiMage.trend).toBeNull();
-    expect(antiMage.daily).toHaveLength(1);
-  });
-
-  it('ranks by the adjusted win rate and applies the minimum sample', async () => {
+  it('ranks by the score and applies the minimum sample', async () => {
     // hero 1 wins 3 of 4 (75%); hero 2 plays only the last one and wins it
     // (100%), but with 1 match its adjusted win rate is lower
     const withoutHero2 = { dire_team: [7, 8, 9, 10, 11] };
@@ -197,13 +185,13 @@ describe('MetaService', () => {
     ]);
     await refresh();
 
-    const ranked = await service.getHeroes(query, now);
+    const ranked = await service.getHeroes(query);
     expect(ranked.heroes.map((hero) => [hero.id, hero.winRate])).toEqual([
       [1, 0.75],
       [2, 1],
     ]);
 
-    const frequent = await service.getHeroes({ ...query, minMatches: 5 }, now);
+    const frequent = await service.getHeroes({ minMatches: 5 });
     expect(frequent.heroes).toEqual([]);
   });
 });

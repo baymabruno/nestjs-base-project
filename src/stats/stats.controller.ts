@@ -6,7 +6,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import {
+  heroAbilitiesQuerySchema,
+  heroAbilitiesSchema,
   heroDetailsSchema,
+  heroRoleItemsQuerySchema,
+  heroRoleItemsSchema,
+  heroRolesQuerySchema,
+  heroRolesSchema,
   heroItemTimingsQuerySchema,
   heroItemTimingsSchema,
   heroMatchupsQuerySchema,
@@ -20,7 +26,13 @@ import {
   metaSchema,
   rolesQuerySchema,
   rolesSchema,
+  type HeroAbilities,
+  type HeroAbilitiesQuery,
   type HeroDetails,
+  type HeroRoleItems,
+  type HeroRoleItemsQuery,
+  type HeroRoles,
+  type HeroRolesQuery,
   type HeroItemTimings,
   type HeroItemTimingsQuery,
   type HeroMatchups,
@@ -35,8 +47,10 @@ import {
   type Roles,
   type RolesQuery,
 } from './schemas/stats.schemas.js';
+import { AbilitiesService } from './abilities.service.js';
 import { HeroService } from './hero.service.js';
 import { MetaService } from './meta.service.js';
+import { RoleItemsQueryService } from './role-items.service.js';
 import { RolesService } from './roles.service.js';
 import { StatsService } from './stats.service.js';
 
@@ -49,6 +63,8 @@ export class StatsController {
     private readonly meta: MetaService,
     private readonly hero: HeroService,
     private readonly roles: RolesService,
+    private readonly abilities: AbilitiesService,
+    private readonly roleItems: RoleItemsQueryService,
   ) {}
 
   @Get('/meta')
@@ -135,5 +151,47 @@ export class StatsController {
     @Query({ schema: heroItemTimingsQuerySchema }) query: HeroItemTimingsQuery,
   ): Promise<HeroItemTimings> {
     return this.hero.getItemTimings(heroId, query);
+  }
+
+  @Get('/heroes/:heroId/abilities')
+  @ApiOkResponse({
+    description:
+      'Most common ability builds (first 10 levels) and the talent tree with the picks of each option',
+    standardSchema: heroAbilitiesSchema,
+  })
+  @ApiNotFoundResponse({ description: 'Unknown hero' })
+  getAbilities(
+    @Param({ schema: heroIdSchema }) { heroId }: HeroId,
+    @Query({ schema: heroAbilitiesQuerySchema }) query: HeroAbilitiesQuery,
+  ): Promise<HeroAbilities> {
+    return this.abilities.getHeroAbilities(heroId, query);
+  }
+
+  @Get('/heroes/:heroId/roles')
+  @ApiOkResponse({
+    description:
+      'The hero in each role (STRATZ): matches, win rate, share and score',
+    standardSchema: heroRolesSchema,
+  })
+  @ApiNotFoundResponse({ description: 'Unknown hero' })
+  getHeroRoles(
+    @Param({ schema: heroIdSchema }) { heroId }: HeroId,
+    @Query({ schema: heroRolesQuerySchema }) query: HeroRolesQuery,
+  ): Promise<HeroRoles> {
+    return this.roles.getHeroRoles(heroId, query);
+  }
+
+  @Get('/heroes/:heroId/role-items')
+  @ApiOkResponse({
+    description:
+      'Starting items and the minute of the first purchase of each item of the hero in a position (STRATZ, latest week)',
+    standardSchema: heroRoleItemsSchema,
+  })
+  @ApiNotFoundResponse({ description: 'Unknown hero' })
+  getRoleItems(
+    @Param({ schema: heroIdSchema }) { heroId }: HeroId,
+    @Query({ schema: heroRoleItemsQuerySchema }) query: HeroRoleItemsQuery,
+  ): Promise<HeroRoleItems> {
+    return this.roleItems.getHeroRoleItems(heroId, query);
   }
 }
