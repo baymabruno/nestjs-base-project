@@ -52,7 +52,6 @@ export class IngestionScheduler implements OnApplicationBootstrap {
         this.config.get('STRATZ_INTERVAL_HOURS', { infer: true }) * 60,
         () => this.syncStratzStats(),
       );
-      void this.run('stratz', () => this.syncStratzStats());
     } else {
       this.logger.warn(
         'STRATZ_API_TOKEN is not set: the statistics by role and the talents are not collected',
@@ -60,8 +59,15 @@ export class IngestionScheduler implements OnApplicationBootstrap {
     }
 
     // first run right away, instead of waiting for the intervals; the
-    // cleanup first, so a restart also removes what left the window
+    // cleanup first, so a restart also removes what left the window. It also
+    // loads the game data, which the STRATZ statistics need (the heroes), so
+    // on an empty database they start after it, alongside the collection.
     void this.deleteExpiredMatches()
+      .then(() => {
+        if (this.ingestion.collectsPositionStats) {
+          void this.run('stratz', () => this.syncStratzStats());
+        }
+      })
       .then(() => this.run('pro-matches', () => this.collectProMatches()))
       .then(() => this.run('public-matches', () => this.collectPublicMatches()))
       .then(() => this.run('stats', () => this.ingestion.refreshStats()));

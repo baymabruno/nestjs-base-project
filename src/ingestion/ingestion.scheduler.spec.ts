@@ -81,6 +81,25 @@ describe('IngestionScheduler', () => {
     expect(ingestion.syncStratzStats).toHaveBeenCalledTimes(2);
   });
 
+  it('starts the statistics by role after the game data is loaded', async () => {
+    let finishCleanup = () => {};
+    ingestion.deleteExpiredMatches = vi.fn(
+      () =>
+        new Promise<number>((resolve) => {
+          finishCleanup = () => resolve(0);
+        }),
+    );
+
+    scheduler.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(0);
+    // the cleanup loads the heroes, which STRATZ needs
+    expect(ingestion.syncStratzStats).not.toHaveBeenCalled();
+
+    finishCleanup();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ingestion.syncStratzStats).toHaveBeenCalledTimes(1);
+  });
+
   it('does not collect the statistics by role without STRATZ', async () => {
     vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     ingestion.collectsPositionStats = false;
