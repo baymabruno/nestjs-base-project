@@ -34,6 +34,7 @@ Este documento explica o sistema. A instalação e a operação de cada ambiente
 
 - [Desenvolvimento](docs/DESENVOLVIMENTO.md)
 - [Produção](docs/PRODUCAO.md)
+- [Render](docs/RENDER.md): ambiente de teste no Render, pelo Blueprint `render.yaml`
 - [Configuração](docs/CONFIGURACAO.md): todas as variáveis de ambiente
 
 ## Criando um novo projeto a partir desta base

@@ -6,6 +6,7 @@ As mudanças de cada versão do Dota Metrics. O formato segue o [Keep a Changelo
 
 ### Adicionado
 
+- Blueprint do Render (`render.yaml`) com a API, o worker, o site e o PostgreSQL, e o guia `docs/RENDER.md`. O worker e o backfill deixam de exigir as chaves JWT, que só a API usa; o site aceita `API_URL` no formato `host:porta`; e, com o banco vazio, as estatísticas do STRATZ esperam o cadastro dos heróis.
 - Projeto criado a partir do [nestjs-base-project](https://github.com/baymabruno/nestjs-base-project) v1.0.0.
 - PostgreSQL 18 no Docker Compose e no CI, com Prisma 7 e migrations versionadas; o `/health` verifica o banco.
 - Cliente da API do OpenDota, com fila de requisições, controle da cota diária e validação das respostas.

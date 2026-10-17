@@ -1,0 +1,129 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec): the API, the
+# worker, the website and the database. Secrets are not in this file: Render
+# asks for the values marked "sync: false" when the Blueprint is created (see
+# docs/RENDER.md).
+#
+# Region and database name, user and version cannot be changed after the
+# first deploy.
+
+databases:
+  - name: dota-metrics-db
+    plan: 0.1c-256mb
+    region: virginia
+    postgresMajorVersion: '18'
+    databaseName: dota_metrics
+    user: dota_metrics
+    # public matches of 24 hours and pro matches of the patch: a few hundred MB
+    diskSizeGB: 5
+    # reachable only by the services, through the private network
+    ipAllowList: []
+
+envVarGroups:
+  # settings shared by the API and the worker (no secrets)
+  - name: dota-metrics-settings
+    envVars:
+      # JSON logs and no demo users
+      - key: APP_ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: log
+      - key: PUBLIC_WINDOW_HOURS
+        value: '24'
+
+services:
+  # API (NestJS), without PM2: Render restarts the process and keeps the logs
+  - type: web
+    name: dota-metrics-api
+    runtime: docker
+    # paid: a free web service cannot receive private network requests (the
+    # website calls the API through the private network)
+    plan: 0.5c-512mb
+    region: virginia
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    preDeployCommand: prisma migrate deploy
+    dockerCommand: node dist/main.js
+    healthCheckPath: /health
+    # deploys only after the CI checks of the commit pass
+    autoDeployTrigger: checksPass
+    buildFilter:
+      ignoredPaths:
+        - web/**
+        - docs/**
+        - '**/*.md'
+    envVars:
+      - fromGroup: dota-metrics-settings
+      - key: PORT
+        value: '3000'
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dota-metrics-db
+          property: connectionString
+      # base64 RSA key pair (see docs/RENDER.md)
+      - key: JWT_PRIVATE_KEY
+        sync: false
+      - key: JWT_PUBLIC_KEY
+        sync: false
+      - key: SWAGGER
+        value: 'false'
+      # every page of the website comes from a single client (the website
+      # server), so the per IP limit must cover all of its requests
+      - key: THROTTLE_LIMIT
+        value: '1000'
+
+  # collects the matches: a single process, so the jobs never run twice
+  - type: worker
+    name: dota-metrics-worker
+    runtime: docker
+    plan: 0.5c-512mb
+    region: virginia
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    # also here: the worker may start before the API deploy finishes
+    # (migrate deploy takes a lock, so running it twice is safe)
+    preDeployCommand: prisma migrate deploy
+    dockerCommand: node dist/worker.js
+    autoDeployTrigger: checksPass
+    buildFilter:
+      ignoredPaths:
+        - web/**
+        - docs/**
+        - '**/*.md'
+    envVars:
+      - fromGroup: dota-metrics-settings
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dota-metrics-db
+          property: connectionString
+      # statistics by role, talents and items by role (https://stratz.com/api)
+      - key: STRATZ_API_TOKEN
+        sync: false
+
+  # website (Next.js); free: it sleeps after 15 minutes without visits and
+  # takes about a minute to wake up
+  - type: web
+    name: dota-metrics-web
+    runtime: docker
+    plan: free
+    region: virginia
+    dockerfilePath: ./docker/DockerfileWeb
+    dockerContext: ./web
+    healthCheckPath: /meta
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - web/**
+        - docker/DockerfileWeb
+      ignoredPaths:
+        - web/**/*.md
+    envVars:
+      - key: PORT
+        value: '3000'
+      - key: HOSTNAME
+        value: 0.0.0.0
+      # the API through the private network (host:port)
+      - key: API_URL
+        fromService:
+          type: web
+          name: dota-metrics-api
+          property: hostport
