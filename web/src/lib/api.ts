@@ -1,7 +1,11 @@
 // Client of the Dota Metrics API, used on the server (Server Components).
 // API_URL is read at runtime, so the same image works in any environment.
 
-const API_URL = process.env.API_URL ?? "http://localhost:3000";
+// Render gives the address of another service as host:port, without the
+// scheme (private network, plain HTTP)
+const apiUrl = (value = "http://localhost:3000") =>
+  /^https?:\/\//.test(value) ? value : `http://${value}`;
+const API_URL = apiUrl(process.env.API_URL);
 
 // the worker recalculates the statistics every 15 minutes
 const REVALIDATE_SECONDS = 900;
