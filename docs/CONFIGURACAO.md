@@ -62,8 +62,8 @@ O endereço da API usado pelo site (`API_URL`) é definido nos arquivos do Docke
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `JWT_PRIVATE_KEY` | obrigatória | Chave privada RSA (no mínimo 2048 bits), em PEM codificado em base64 numa única linha. Assina os tokens. O `setup.sh` gera o par; para gerar manualmente, veja o [guia de produção](PRODUCAO.md#antes-do-deploy) |
-| `JWT_PUBLIC_KEY` | obrigatória | Chave pública do mesmo par, no mesmo formato. Valida os tokens e é publicada em `/.well-known/jwks.json` para outros serviços. A aplicação não sobe se ela não corresponder à chave privada. Trocar o par invalida todos os tokens emitidos |
+| `JWT_PRIVATE_KEY` | obrigatória na API (o worker e o backfill não usam) | Chave privada RSA (no mínimo 2048 bits), em PEM codificado em base64 numa única linha. Assina os tokens. O `setup.sh` gera o par; para gerar manualmente, veja o [guia de produção](PRODUCAO.md#antes-do-deploy) |
+| `JWT_PUBLIC_KEY` | obrigatória na API (o worker e o backfill não usam) | Chave pública do mesmo par, no mesmo formato. Valida os tokens e é publicada em `/.well-known/jwks.json` para outros serviços. A aplicação não sobe se ela não corresponder à chave privada. Trocar o par invalida todos os tokens emitidos |
 | `JWT_ISSUER` | `dota-metrics` | Emissor (`iss`) gravado nos tokens e exigido na validação. Trocar invalida os tokens emitidos |
 | `JWT_AUDIENCE` | `dota-metrics` | Público (`aud`) gravado nos tokens e exigido na validação. Trocar invalida os tokens emitidos |
 | `JWT_EXPIRES_IN` | `900` | Validade do access token, em segundos (15 minutos). Mantenha curta: o cliente renova a sessão com o refresh token |

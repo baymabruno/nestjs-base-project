@@ -1,6 +1,6 @@
 import { requiredEnv } from '../../test/support/env.js';
 import { generateJwtKeys } from '../../test/support/jwt-keys.js';
-import { envSchema } from './env.validation.js';
+import { envSchema, workerEnvSchema } from './env.validation.js';
 
 const base = { ...requiredEnv(), JWT_EXPIRES_IN: '3600' };
 
@@ -76,5 +76,16 @@ describe('envSchema', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it('does not require the JWT keys in the worker', () => {
+    const { JWT_PRIVATE_KEY, JWT_PUBLIC_KEY, ...worker } = base;
+
+    expect(JWT_PRIVATE_KEY && JWT_PUBLIC_KEY).toBeTruthy();
+    expect(workerEnvSchema.parse(worker)).toMatchObject({
+      DATABASE_URL: base.DATABASE_URL,
+      PUBLIC_WINDOW_HOURS: 24,
+    });
+    expect(() => envSchema.parse(worker)).toThrow();
   });
 });
